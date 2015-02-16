@@ -16,7 +16,7 @@ from collections import namedtuple
 # It assumes there are 'wav', 'lab', and 'pm' directories are available in data
 corpus_path = '/Users/hamid/Code/gitlab/voice-conversion/src/lib/arctic/cmu_us_slt_arctic'
 # phoneme group info., for improving the search
-phoneme_group = {'phone':'class'}
+phoneme_category = {'phone':'class'}
 
 # each unit is stored like this:
 # demiphone: is it a demiphone? True or False
@@ -28,9 +28,14 @@ phoneme_group = {'phone':'class'}
 # filename: wave filename
 # starting_sample: the starting sample of the unit in the waveform
 # ending_sample: the ending sample of the unit in the waveform
+# overlap_starting_sample: the starting sample of the overlap unit in the waveform
+# overlap_ending_sample: the ending sample of the overlap unit in the waveform
+# left_CEP: cepstrum vector of the furthest left frame
+# right_CEP: cepstrum vector of the furthest right frame
 Unit = namedtuple("Unit", "demiphone id left_phone right_phone \
 left_phone_category right_phone_category filename starting_sample \
-ending_sample left_CEP right_CEP")
+ending_sample overlap_starting_sample overlap_ending_sample left_CEP \
+right_CEP")
 
 def read_wav(wav_fname):
     if not exists(wav_fname):
@@ -69,10 +74,34 @@ def read_pm(pm_fname):
         times.append(float(pars[0]))
     return times
 
-def extract_info(times, labs, wav, fs):
-    for i in len(labs):
-        pass
-        
+def extract_info(lab_path, wav_path):
+    times, labs = read_lab(lab_path)
+    fs, wav = read_wav(wav_path)
+    # compute demiphones
+    for i in range(1,len(labs)-2):
+        id = labs[i]+'_'+labs[i+1]
+        left_phone = labs[i-1]
+        right_phone = labs[i+2]
+        left_phone_cat = None#phoneme_category[left_phone]
+        right_phon_cat = None#phoneme_category[right_phone]
+        starting_sample = int(fs * (times[i]+times[i+1])/2)
+        ending_sample = int(fs * (times[i+1]+times[i+2])/2)
+        overlap_starting_sample = starting_sample - int(fs * (times[i+1]-times[i])/2)
+        overlap_ending_sample = ending_sample + int(fs * (times[i+2]-times[i+1])/2)
+        cur_unit = Unit(demiphone=True, id=id, 
+                        left_phone=left_phone, 
+                        right_phone=right_phone,
+                        left_phone_category=left_phone_cat, 
+                        right_phone_category=right_phon_cat,
+                        filename=wav_path, 
+                        starting_sample=starting_sample,
+                        ending_sample=ending_sample, 
+                        overlap_starting_sample=overlap_starting_sample,
+                        overlap_ending_sample=overlap_ending_sample,
+                        left_CEP=None, right_CEP=None)
+        units.append(cur_unit)
+    # compute phones
+
     return units
 
 def compute_cepstrum(wav_frame):
@@ -89,8 +118,8 @@ if __name__ == "__main__":
     fnames = get_filenames('lab')
     units = []
     for fname in fnames:
-        times, labs = read_lab(corpus_path+'/lab/'+fname+'.lab')
-        fs, wav = read_wav(corpus_path+'/wav/'+fname+'.wav')
+        
 
-        cur_units = extract_info(times, labs, wav, fs)
+        cur_units = extract_info(corpus_path+'/lab/'+fname+'.lab', 
+                                 corpus_path+'/wav/'+fname+'.wav')
         pass
