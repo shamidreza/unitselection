@@ -10,12 +10,27 @@ the unit-selection engine.
 import numpy as np
 from scipy.io.wavfile import read as wread
 from os.path import exists
+from collections import namedtuple
 
 # change corpus_path to refer to your local version of the repository
 # It assumes there are 'wav', 'lab', and 'pm' directories are available in data
 corpus_path = '/Users/hamid/Code/gitlab/voice-conversion/src/lib/arctic/cmu_us_slt_arctic'
 # phoneme group info., for improving the search
 phoneme_group = {'phone':'class'}
+
+# each unit is stored like this:
+# demiphone: is it a demiphone? True or False
+# id: for demiphone: 'f_ih' for phone: 'ih'
+# left_phone: left phoneme
+# right_phone: right phoneme
+# left_phone_category: The category (nasal, fricative, etc) of the left phone
+# right_phone_category: The category (nasal, fricative, etc) of the right phone
+# filename: wave filename
+# starting_sample: the starting sample of the unit in the waveform
+# ending_sample: the ending sample of the unit in the waveform
+Unit = namedtuple("Unit", "demiphone id left_phone right_phone \
+left_phone_category right_phone_category filename starting_sample \
+ending_sample left_CEP right_CEP")
 
 def read_wav(wav_fname):
     if not exists(wav_fname):
@@ -55,8 +70,9 @@ def read_pm(pm_fname):
     return times
 
 def extract_info(times, labs, wav, fs):
-    diphones = []
-    
+    for i in len(labs):
+        pass
+        
     return units
 
 def compute_cepstrum(wav_frame):
