@@ -25,13 +25,34 @@ def read_wav(wav_fname):
 
 def read_lab(lab_fname):
     if not os.path.exists(lab_fname):
-        raise IOError, 'The following file does not exist: ' + wav_fname
-    return lab
+        raise IOError, 'The following file does not exist: ' + lab_fname
+    f=open(lab_name, 'r')
+    times = [0.0]
+    lab = []
+    for line in f:
+        line = line[:-1]
+        if line == '#':
+            continue
+        pars=line.split(' ')
+        times.append(float(pars[0]))
+        lab.append(pars[-1])
+        
+    return times, lab
 
 def read_pm(pm_fname):
     if not os.path.exists(pm_fname):
-        raise IOError, 'The following file does not exist: ' + wav_fname
-    return pm
+        raise IOError, 'The following file does not exist: ' + pm_fname
+    f=open(pm_fname, 'r')
+    times = []
+    cnt = 0
+    for line in f:
+        line = line[:-1]
+        if cnt < 6:
+            cnt += 1
+            continue
+        pars=line.split(' ')
+        times.append(float(pars[0]))
+    return times
 
 def extract_info(lab):
     return units
