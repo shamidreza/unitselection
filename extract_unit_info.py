@@ -16,7 +16,48 @@ from collections import namedtuple
 # It assumes there are 'wav', 'lab', and 'pm' directories are available in data
 corpus_path = '/Users/hamid/Code/gitlab/voice-conversion/src/lib/arctic/cmu_us_slt_arctic'
 # phoneme group info., for improving the search
-phoneme_category = {'phone':'class'}
+phoneme_category = {'aa':'vowel_mid', #bot
+                    'ae':'vowel_mid', #bat
+                    'ah':'vowel_mid', #but
+                    'ax':'vowel_mid', #but? (not available in ARPABET)
+                    'ao':'vowel_mid', #bought
+                    'aw':'vowel_mid', #bout
+                    'ay':'vowel_mid', #bay
+                    'eh':'vowel_front', # bet
+                    'er':'vowel_front', # bird
+                    'ey':'vowel_front', # bait
+                    'ih':'vowel_front', #bit
+                    'iy':'vowel_front', #beat
+                    'ow':'vowel_back', #boat
+                    'oy':'vowel_back', #boy
+                    'uh':'vowel_back', #put
+                    'uw':'vowel_back', #bood
+                    'b':'plosive',
+                    'p':'plosive',
+                    'k':'plosive',
+                    'g':'plosive',
+                    't':'plosive',
+                    'd':'plosive',
+                    'w':'glide',
+                    'y':'glide',
+                    'l':'liquid',
+                    'r':'liquid',
+                    'dh':'fricative',#that
+                    'th':'fricative',#think
+                    's':'fricative',#sue
+                    'z':'fricative',#zoo
+                    'sh':'fricative',#she
+                    'zh':'fricative',#vision
+                    'v':'fricative',#van
+                    'f':'fricative',#fan
+                    'ch':'affricative',#chalk
+                    'jh':'affricative',#jam
+                    'h':'whisper',#ham
+                    'm':'nasal', #map
+                    'n':'nasal', #nap
+                    'ng':'nasal', #sing
+                    'pau':'pau'
+                    }
 
 # each unit is stored like this:
 # demiphone: is it a demiphone? True or False
@@ -82,8 +123,8 @@ def extract_info(lab_path, wav_path):
         id = labs[i]+'_'+labs[i+1]
         left_phone = labs[i-1]
         right_phone = labs[i+2]
-        left_phone_cat = None#phoneme_category[left_phone]
-        right_phon_cat = None#phoneme_category[right_phone]
+        left_phone_cat = phoneme_category[left_phone]
+        right_phon_cat = phoneme_category[right_phone]
         starting_sample = int(fs * (times[i]+times[i+1])/2)
         ending_sample = int(fs * (times[i+1]+times[i+2])/2)
         overlap_starting_sample = starting_sample - int(fs * (times[i+1]-times[i])/2)
@@ -118,8 +159,5 @@ if __name__ == "__main__":
     fnames = get_filenames('lab')
     units = []
     for fname in fnames:
-        
-
         cur_units = extract_info(corpus_path+'/lab/'+fname+'.lab', 
                                  corpus_path+'/wav/'+fname+'.wav')
-        pass
