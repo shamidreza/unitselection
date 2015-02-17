@@ -57,6 +57,7 @@ phoneme_category = {'aa':'vowel_mid', #bot
                     'ch':'affricative',#chalk
                     'jh':'affricative',#jam
                     'h':'whisper',#ham
+                    'hh':'whisper',#ham
                     'm':'nasal', #map
                     'n':'nasal', #nap
                     'ng':'nasal', #sing
@@ -64,8 +65,8 @@ phoneme_category = {'aa':'vowel_mid', #bot
                     }
 
 # each unit is stored like this:
-# demiphone: is it a demiphone? True or False
-# id: for demiphone: 'f_ih' for phone: 'ih'
+# type: is it a demiphone? phone_L, or phone_R
+# name: for demiphone: 'f_ih' for phone: 'ih'
 # left_phone: left phoneme
 # right_phone: right phoneme
 # left_phone_category: The category (nasal, fricative, etc) of the left phone
@@ -77,10 +78,12 @@ phoneme_category = {'aa':'vowel_mid', #bot
 # overlap_ending_sample: the ending sample of the overlap unit in the waveform
 # left_CEP: cepstrum vector of the furthest left frame
 # right_CEP: cepstrum vector of the furthest right frame
-Unit = namedtuple("Unit", "demiphone id left_phone right_phone \
+# unit_id: a unique ID assigned to the unit
+
+Unit = namedtuple("Unit", "LR phone left_phone right_phone \
 left_phone_category right_phone_category filename starting_sample \
 ending_sample overlap_starting_sample overlap_ending_sample left_CEP \
-right_CEP")
+right_CEP unit_id")
 
 def read_wav(wav_fname):
     if not exists(wav_fname):
@@ -119,37 +122,89 @@ def read_pm(pm_fname):
         times.append(float(pars[0]))
     return times
 
-def extract_info(lab_path, wav_path):
+def extract_info(lab_path, wav_path, start_uid, file_number):
     times, labs = read_lab(lab_path)
     fs, wav = read_wav(wav_path)
-    # compute demiphones
-    for i in range(1,len(labs)-2):
-        id = labs[i]+'_'+labs[i+1]
-        left_phone = labs[i-1]
-        right_phone = labs[i+2]
-        left_phone_cat = phoneme_category[left_phone]
-        right_phon_cat = phoneme_category[right_phone]
-        starting_sample = int(fs * (times[i]+times[i+1])/2)
-        ending_sample = int(fs * (times[i+1]+times[i+2])/2)
-        overlap_starting_sample = starting_sample - int(fs * (times[i+1]-times[i])/2)
-        overlap_ending_sample = ending_sample + int(fs * (times[i+2]-times[i+1])/2)
-        left_CEP = compute_cepstrum(wav[starting_sample:starting_sample+int(0.025*fs)])[1:21]
-        right_CEP = compute_cepstrum(wav[ending_sample-int(0.025*fs):ending_sample])[1:21]
-
-        cur_unit = Unit(demiphone=True, id=id, 
-                        left_phone=left_phone, 
-                        right_phone=right_phone,
-                        left_phone_category=left_phone_cat, 
-                        right_phone_category=right_phon_cat,
-                        filename=wav_path, 
-                        starting_sample=starting_sample,
-                        ending_sample=ending_sample, 
-                        overlap_starting_sample=overlap_starting_sample,
-                        overlap_ending_sample=overlap_ending_sample,
-                        left_CEP=None, right_CEP=None)
-        units.append(cur_unit)
-    # compute phones
-
+    units = []
+    if 0:
+        # compute demiphones
+        for i in range(1,len(labs)-2):
+            id = labs[i]+'_'+labs[i+1]
+            left_phone = labs[i-1]
+            right_phone = labs[i+2]
+            left_phone_cat = phoneme_category[left_phone]
+            right_phon_cat = phoneme_category[right_phone]
+            starting_sample = int(fs * (times[i]+times[i+1])/2)
+            ending_sample = int(fs * (times[i+1]+times[i+2])/2)
+            overlap_starting_sample = starting_sample - int(fs * (times[i+1]-times[i])/2)
+            overlap_ending_sample = ending_sample + int(fs * (times[i+2]-times[i+1])/2)
+            left_CEP = compute_cepstrum(wav[starting_sample:starting_sample+int(0.025*fs)])[1:21]
+            right_CEP = compute_cepstrum(wav[ending_sample-int(0.025*fs):ending_sample])[1:21]
+    
+            cur_unit = Unit(type='demiphone', id=id, 
+                            left_phone=left_phone, 
+                            right_phone=right_phone,
+                            left_phone_category=left_phone_cat, 
+                            right_phone_category=right_phon_cat,
+                            filename=wav_path, 
+                            starting_sample=starting_sample,
+                            ending_sample=ending_sample, 
+                            overlap_starting_sample=overlap_starting_sample,
+                            overlap_ending_sample=overlap_ending_sample,
+                            left_CEP=left_CEP, right_CEP=right_CEP)
+            units.append(cur_unit)
+    for i in range(1,len(labs)-1):
+        if 1: # compute left phones
+            phone = labs[i]#+'_'+'*'
+            left_phone = labs[i-1]
+            right_phone = labs[i+1]
+            left_phone_cat = phoneme_category[left_phone]
+            right_phon_cat = phoneme_category[right_phone]
+            starting_sample = int(fs * (times[i]))
+            ending_sample = int(fs * (times[i]+times[i+1])/2)
+            overlap_starting_sample = starting_sample - int(fs * (times[i+1]-times[i])/2)
+            overlap_ending_sample = ending_sample + int(fs * (times[i+1]-times[i])/2)
+            left_CEP = compute_cepstrum(wav[starting_sample:starting_sample+int(0.025*fs)])[1:21]
+            right_CEP = compute_cepstrum(wav[ending_sample-int(0.025*fs):ending_sample])[1:21]
+    
+            cur_unit = Unit(LR='L', phone=phone, 
+                            left_phone=left_phone, 
+                            right_phone=right_phone,
+                            left_phone_category=left_phone_cat, 
+                            right_phone_category=right_phon_cat,
+                            filename=file_number, 
+                            starting_sample=starting_sample,
+                            ending_sample=ending_sample, 
+                            overlap_starting_sample=overlap_starting_sample,
+                            overlap_ending_sample=overlap_ending_sample,
+                            left_CEP=left_CEP, right_CEP=right_CEP, unit_id=start_uid+i*2)
+            units.append(cur_unit)
+        if 1: # compute right phones
+            phone = labs[i]#+'_'+'*'
+            left_phone = labs[i-1]
+            right_phone = labs[i+1]
+            left_phone_cat = phoneme_category[left_phone]
+            right_phon_cat = phoneme_category[right_phone]
+            starting_sample = int(fs * (times[i]+times[i+1])/2)
+            ending_sample = int(fs * (times[i+1]))
+            overlap_starting_sample = starting_sample - int(fs * (times[i+1]-times[i])/2)
+            overlap_ending_sample = ending_sample + int(fs * (times[i+1]-times[i])/2)
+            left_CEP = compute_cepstrum(wav[starting_sample:starting_sample+int(0.025*fs)])[1:21]
+            right_CEP = compute_cepstrum(wav[ending_sample-int(0.025*fs):ending_sample])[1:21]
+    
+            cur_unit = Unit(LR='R', phone=phone, 
+                            left_phone=left_phone, 
+                            right_phone=right_phone,
+                            left_phone_category=left_phone_cat, 
+                            right_phone_category=right_phon_cat,
+                            filename=file_number, 
+                            starting_sample=starting_sample,
+                            ending_sample=ending_sample, 
+                            overlap_starting_sample=overlap_starting_sample,
+                            overlap_ending_sample=overlap_ending_sample,
+                            left_CEP=left_CEP, right_CEP=right_CEP,unit_id=start_uid+i*2+1)
+            units.append(cur_unit)
+          
     return units
 
 def compute_cepstrum(wav_frame):
@@ -158,15 +213,34 @@ def compute_cepstrum(wav_frame):
     return cep
 
 def get_filenames(file_extension):
-    from glob import iglob
     fnames = []
-    for fname in iglob(corpus_path+'/'+file_extension+'/*.'+file_extension):
-        fnames.append(fname.split('/')[-1].split('.')[0])
+    #from glob import iglob
+    #for fname in iglob(corpus_path+'/'+file_extension+'/*.'+file_extension):
+        #fnames.append(fname.split('/')[-1].split('.')[0])
+    for i in range(100):
+        fnames.append('arctic_b'+str(i+1).zfill(4))
     return fnames
 
 if __name__ == "__main__":
     fnames = get_filenames('lab')
-    units = []
+    units = np.zeros(100000, 'object')
+    cnt = 0
+    file_counter = 0
     for fname in fnames:
+        print 'Analyzing ' + fname
         cur_units = extract_info(corpus_path+'/lab/'+fname+'.lab', 
-                                 corpus_path+'/wav/'+fname+'.wav')
+                                 corpus_path+'/wav/'+fname+'.wav',
+                                 file_counter*500,
+                                 file_counter)
+        for j in xrange(len(cur_units)):
+            units[cnt] = cur_units[j]
+            cnt += 1
+        file_counter += 1
+    units = units[:cnt]
+    import pickle
+    f=open('units.pkl','w+')
+    pickle.dump(units, f)
+    pickle.dump(fnames, f)
+    f.flush()
+    f.close()
+    print 'successfully pickled units in units.pkl!'
