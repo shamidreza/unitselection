@@ -67,6 +67,47 @@ def load_input(inp_name):
         units_np[i] = units[i]
     return units_np
     
+def target_cost(target_unit, unit):
+    pass
+def joint_cost(target_unit1, target_unit2):
+    pass
+def search(target_units, all_units, limit=20):
+    # viterbi search through the units
+    target_score = np.zeros((target_units.shape[0], limit))
+    target_indice = np.zeros((target_units.shape[0], limit), dtype=np.uint)
+    # compute target costs
+    for t in range(target_units.shape[0]):
+        cur_distances = np.zeros(all_units.shape[0])
+        for j in range(all_units.shape[0]):
+            cur_distances[j] = target_cost(target_unit[t], all_units[j])
+        cur_indice = cur_distances.argsort()[-limit,:][::-1]
+        target[t, :] = cur_indice
+        target_score[t, :] = cur_distances[cur_indice]
+    # compute joint costs
+    score = np.zeros((target_units.shape[0], limit))
+    path = np.zeros((target_units.shape[0], limit), dtype=np.uint)
+
+    score[0, :] = target_score[0, :]
+    
+    for t in xrange(1,target_units.shape[0]):
+        for i in xrange(limit): #from
+            score_min = -1.0
+            score_imin = 10000000.0
+            for j in xrange(limit): # to
+                tmp_cost = score[t-1, i] + \
+                    joint_cost(all_units[target_indice[i]], all_units[target_indice[j]])
+                if tmp_cost < score_min:
+                    score_min = tmp_cost
+                    score_imin = i
+            score[t, j] = score_min + target_score[t-1, :]
+            path[t, j] = score_imin
+    
+    best_units_indice = np.zeros(target_units.shape[0], dtype='object')
+    best_units_indice[-1] = score[-1,:].argmin()
+    for t in xrange(target_units.shape[0]-2, -1, -1):
+        best_units_indice[t] = path[t+1, best_units_indice[t+1]]
+    return best_units_indice
+                
 if __name__ == "__main__":
     fname = 'arctic_a0001'
     lab_name=corpus_path+'/lab/'+fname+'.lab'
