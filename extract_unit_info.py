@@ -11,7 +11,11 @@ import numpy as np
 from scipy.io.wavfile import read as wread
 from os.path import exists
 from collections import namedtuple
-
+from scipy.fftpack import dct, idct
+try:
+    from matplotlib import pyplot as pp
+except:
+    print 'Could not load matplotlib'
 # change corpus_path to refer to your local version of the repository
 # It assumes there are 'wav', 'lab', and 'pm' directories are available in data
 corpus_path = '/Users/hamid/Code/gitlab/voice-conversion/src/lib/arctic/cmu_us_slt_arctic'
@@ -129,6 +133,9 @@ def extract_info(lab_path, wav_path):
         ending_sample = int(fs * (times[i+1]+times[i+2])/2)
         overlap_starting_sample = starting_sample - int(fs * (times[i+1]-times[i])/2)
         overlap_ending_sample = ending_sample + int(fs * (times[i+2]-times[i+1])/2)
+        left_CEP = compute_cepstrum(wav[starting_sample:starting_sample+int(0.025*fs)])[1:21]
+        right_CEP = compute_cepstrum(wav[ending_sample-int(0.025*fs):ending_sample])[1:21]
+
         cur_unit = Unit(demiphone=True, id=id, 
                         left_phone=left_phone, 
                         right_phone=right_phone,
@@ -146,6 +153,8 @@ def extract_info(lab_path, wav_path):
     return units
 
 def compute_cepstrum(wav_frame):
+    spectrum=np.log(np.abs(np.fft.fft(wav_frame)))
+    cep = dct(spectrum, norm='ortho')
     return cep
 
 def get_filenames(file_extension):
