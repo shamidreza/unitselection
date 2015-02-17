@@ -68,9 +68,15 @@ def load_input(inp_name):
     return units_np
     
 def target_cost(target_unit, unit):
-    pass
+    cost = (target_unit.phone == unit.phone) * \
+           (1.0+(target_unit.left_phone==unit.left_phone)*0.3+\
+            (target_unit.right_phone==unit.right_phone)*0.3+\
+            (target_unit.left_phone_category==unit.left_phone_category)*0.1+\
+            (target_unit.right_phone_category==unit.right_phone_category)*0.1)
+    return cost
 def joint_cost(target_unit1, target_unit2):
-    pass
+    cost = 0.0
+    return cost
 def search(target_units, all_units, limit=20):
     # viterbi search through the units
     target_score = np.zeros((target_units.shape[0], limit))
@@ -79,9 +85,9 @@ def search(target_units, all_units, limit=20):
     for t in range(target_units.shape[0]):
         cur_distances = np.zeros(all_units.shape[0])
         for j in range(all_units.shape[0]):
-            cur_distances[j] = target_cost(target_unit[t], all_units[j])
-        cur_indice = cur_distances.argsort()[-limit,:][::-1]
-        target[t, :] = cur_indice
+            cur_distances[j] = target_cost(target_units[t], all_units[j])
+        cur_indice = cur_distances.argsort()[-limit:][::-1]
+        target_indice[t, :] = cur_indice
         target_score[t, :] = cur_distances[cur_indice]
     # compute joint costs
     score = np.zeros((target_units.shape[0], limit))
@@ -91,15 +97,15 @@ def search(target_units, all_units, limit=20):
     
     for t in xrange(1,target_units.shape[0]):
         for i in xrange(limit): #from
-            score_min = -1.0
-            score_imin = 10000000.0
+            score_imin = -1.0
+            score_min = 10000000.0
             for j in xrange(limit): # to
                 tmp_cost = score[t-1, i] + \
                     joint_cost(all_units[target_indice[i]], all_units[target_indice[j]])
                 if tmp_cost < score_min:
                     score_min = tmp_cost
                     score_imin = i
-            score[t, j] = score_min + target_score[t-1, :]
+            score[t, j] = score_min + target_score[t, j]
             path[t, j] = score_imin
     
     best_units_indice = np.zeros(target_units.shape[0], dtype='object')
@@ -114,4 +120,5 @@ if __name__ == "__main__":
     wav_name=corpus_path+'/wav/'+fname+'.wav'
     target_units = load_input(lab_name)
     units, fnames=load_units()
+    search(target_units, units)
     a=0
