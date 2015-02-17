@@ -76,6 +76,9 @@ def target_cost(target_unit, unit):
     return cost
 def joint_cost(target_unit1, target_unit2):
     cost = 0.0
+    cost = (1.0*(target_unit1.right_phone==target_unit2.left_phone)+\
+            0.1*(target_unit1.right_phone_category==target_unit2.left_phone_category))
+    cost = -10.0 if cost==0.0 else cost
     return cost
 def search(target_units, all_units, limit=20):
     # viterbi search through the units
@@ -96,19 +99,19 @@ def search(target_units, all_units, limit=20):
     score[0, :] = target_score[0, :]
     
     for t in xrange(1,target_units.shape[0]):
-        for i in xrange(limit): #from
+        for i in xrange(limit): # from
             score_imin = -1.0
             score_min = 10000000.0
             for j in xrange(limit): # to
                 tmp_cost = score[t-1, i] + \
-                    joint_cost(all_units[target_indice[i]], all_units[target_indice[j]])
+                    joint_cost(all_units[target_indice[t-1, i]], all_units[target_indice[t, j]])
                 if tmp_cost < score_min:
                     score_min = tmp_cost
                     score_imin = i
             score[t, j] = score_min + target_score[t, j]
             path[t, j] = score_imin
     
-    best_units_indice = np.zeros(target_units.shape[0], dtype='object')
+    best_units_indice = np.zeros(target_units.shape[0])
     best_units_indice[-1] = score[-1,:].argmin()
     for t in xrange(target_units.shape[0]-2, -1, -1):
         best_units_indice[t] = path[t+1, best_units_indice[t+1]]
@@ -120,5 +123,6 @@ if __name__ == "__main__":
     wav_name=corpus_path+'/wav/'+fname+'.wav'
     target_units = load_input(lab_name)
     units, fnames=load_units()
-    search(target_units, units)
+    best_units_indice=search(target_units, units)
+    best_units = units[best_units_indice]
     a=0
