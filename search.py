@@ -1,4 +1,5 @@
 """
+Author: Seyed Hamidreza Mohammadi
 This file is part of the shamidreza/uniselection software.
 Please refer to the LICENSE provided alongside the software (which is GPL v2,
 http://www.gnu.org/licenses/gpl-2.0.html). 
