@@ -23,10 +23,10 @@ def load_input(inp_name):
     for i in range(1, len(labs) - 1):
         if 1:  # compute left phones
             phone = labs[i]+'_L'  # +'_'+'*'
-            left_phone = labs[i - 1]
-            right_phone = labs[i + 1]
-            left_phone_cat = phoneme_category[left_phone]
-            right_phone_cat = phoneme_category[right_phone]
+            left_phone = labs[i-1]
+            right_phone = labs[i+1]
+            left_phone_cat = phoneme_category[labs[i-1]]
+            right_phone_cat = phoneme_category[labs[i+1]]
             stating_sample=0
             ending_sample=int(16000*(times[i+1]-times[i])/2)
             cur_unit = Unit(LR='L', phone=phone,
@@ -43,10 +43,10 @@ def load_input(inp_name):
             units.append(cur_unit)
         if 1:  # compute right phones
             phone = labs[i]+'_R'   # +'_'+'*'
-            left_phone = labs[i - 1]
-            right_phone = labs[i + 1]
-            left_phone_cat = phoneme_category[left_phone]
-            right_phon_cat = phoneme_category[right_phone]
+            left_phone = labs[i-1]
+            right_phone = labs[i+1]
+            left_phone_cat = phoneme_category[labs[i-1]]
+            right_phon_cat = phoneme_category[labs[i+1]]
             stating_sample=0
             ending_sample=int(16000*(times[i+1]-times[i])/2)
             cur_unit = Unit(LR='R', phone=phone,
@@ -68,17 +68,42 @@ def load_input(inp_name):
     return units_np
     
 def target_cost(target_unit, unit):
-    cost = (target_unit.phone == unit.phone) * \
-           (1.0+(target_unit.left_phone==unit.left_phone)*0.3+\
-            (target_unit.right_phone==unit.right_phone)*0.3+\
-            (target_unit.left_phone_category==unit.left_phone_category)*0.1+\
-            (target_unit.right_phone_category==unit.right_phone_category)*0.1)
+    cost = 1.0
+    if 'L' in unit.phone:
+    #if 1:
+        cost += 0.3 * (target_unit.left_phone==unit.left_phone)
+        cost += 0.1 * (target_unit.left_phone_category==unit.left_phone_category)
+        cost += 0.03 * (target_unit.right_phone==unit.right_phone)
+        cost += 0.01 * (target_unit.right_phone_category==unit.right_phone_category)
+    if 'R' in unit.phone:
+        cost += 0.03 * (target_unit.right_phone==unit.right_phone)
+        cost += 0.01 * (target_unit.right_phone_category==unit.right_phone_category)
+        cost += 0.3 * (target_unit.left_phone==unit.left_phone)
+        cost += 0.1 * (target_unit.left_phone_category==unit.left_phone_category)
+    cost *= (target_unit.phone == unit.phone)
+
     return -cost
 def joint_cost(target_unit1, target_unit2):
     cost = 0.0
-    cost = (1.0*(target_unit1.right_phone==target_unit2.left_phone)+\
-            0.1*(target_unit1.right_phone_category==target_unit2.left_phone_category))
-    cost = -10.0 if cost==0.0 else cost
+    if target_unit1.phone.find('_L')!=-1:
+        cost = (1.0*(target_unit1.phone.split('_')[0]==target_unit2.phone.split('_')[0]))
+        if cost:
+            cost += 0.5 if (target_unit1.unit_id == target_unit2.unit_id-1) else 0.0
+
+    elif target_unit1.phone.find('_R')!=-1:
+        cost = (3.0*(target_unit1.phone.split('_')[0]==target_unit2.left_phone))
+        if cost:
+            cost += 2.0 if (target_unit1.unit_id == target_unit2.unit_id-1) else 0.0
+            
+    else:
+        raise AssertionError
+
+
+    #+\
+            #0.1*(target_unit1.right_phone_category==target_unit2.left_phone_category))
+    cost -= 0.001*np.mean((target_unit1.right_CEP - target_unit2.left_CEP)**2)
+    #cost = -10.0 if cost==0.0 else cost
+    #cost = 10.0 if (cost != -10.0) and (target_unit1.unit_id == target_unit2.unit_id-1) else cost
     return -cost
 def search(target_units, all_units, limit=20):
     # viterbi search through the units
@@ -89,9 +114,10 @@ def search(target_units, all_units, limit=20):
         cur_distances = np.zeros(all_units.shape[0])
         for j in range(all_units.shape[0]):
             cur_distances[j] = target_cost(target_units[t], all_units[j])
-        cur_indice = cur_indice = cur_distances.argsort()[:limit]
+        cur_indice = cur_distances.argsort()[:limit]
         target_indice[t, :] = cur_indice
         target_score[t, :] = cur_distances[cur_indice]
+    
     # compute joint costs
     score = np.zeros((target_units.shape[0], limit))
     path = np.zeros((target_units.shape[0], limit), dtype=np.uint)
@@ -100,7 +126,7 @@ def search(target_units, all_units, limit=20):
     
     for t in xrange(1,target_units.shape[0]):
         for j in xrange(limit): # to
-            score_imin = -1.0
+            score_imin = 1000000
             score_min = 10000000.0
             for i in xrange(limit): # from
                 tmp_cost = score[t-1, i] + \
@@ -108,6 +134,7 @@ def search(target_units, all_units, limit=20):
                 if tmp_cost < score_min:
                     score_min = tmp_cost
                     score_imin = i
+            assert score_imin != 1000000
             score[t, j] = score_min + target_score[t, j]
             path[t, j] = score_imin
     
@@ -117,17 +144,23 @@ def search(target_units, all_units, limit=20):
         best_units_indice[t] = path[t+1, best_units_indice[t+1]]
     for t in xrange(target_units.shape[0]):
         best_units_indice[t] = target_indice[t, best_units_indice[t]]
-
+    
     return best_units_indice
                 
 if __name__ == "__main__":
     fname = 'arctic_a0001'
     lab_name=corpus_path+'/lab/'+fname+'.lab'
     wav_name=corpus_path+'/wav/'+fname+'.wav'
-    target_units = load_input(lab_name)
+    ##target_units = load_input(lab_name)
+    tmp_units=extract_info(lab_name, wav_name, 0,0)
+    target_units = np.zeros(len(tmp_units), 'object')
+    for j in xrange(len(tmp_units)):
+        target_units[j] = tmp_units[j]
+        
     units, fnames=load_units()
+    units = units[:int(units.shape[0]*(100.0/500.0))]
     best_units_indice=search(target_units, units,limit=20)
     best_units = units[best_units_indice]
     for i in xrange(target_units.shape[0]):
-        print target_units[i].phone, best_units[i].phone
+        print target_units[i].phone, best_units[i].phone, best_units[i].unit_id
     a=0

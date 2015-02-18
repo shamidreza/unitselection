@@ -164,10 +164,10 @@ def extract_info(lab_path, wav_path, start_uid, file_number):
     for i in range(1, len(labs) - 1):
         if 1:  # compute left phones
             phone = labs[i]+'_L'  # +'_'+'*'
-            left_phone = labs[i - 1]
-            right_phone = labs[i + 1]
-            left_phone_cat = phoneme_category[left_phone]
-            right_phone_cat = phoneme_category[right_phone]
+            left_phone = labs[i-1]##labs[i - 1]
+            right_phone = labs[i+1]##labs[i + 1]
+            left_phone_cat = phoneme_category[labs[i-1]]
+            right_phone_cat = phoneme_category[labs[i+1]]
             starting_sample = int(fs * (times[i]))
             ending_sample = int(fs * (times[i] + times[i + 1]) / 2)
             overlap_starting_sample = starting_sample - \
@@ -193,10 +193,10 @@ def extract_info(lab_path, wav_path, start_uid, file_number):
             units.append(cur_unit)
         if 1:  # compute right phones
             phone = labs[i]+'_R'   # +'_'+'*'
-            left_phone = labs[i - 1]
-            right_phone = labs[i + 1]
-            left_phone_cat = phoneme_category[left_phone]
-            right_phone_cat = phoneme_category[right_phone]
+            left_phone = labs[i-1]
+            right_phone = labs[i+1]
+            left_phone_cat = phoneme_category[labs[i-1]]
+            right_phone_cat = phoneme_category[labs[i+1]]
             starting_sample = int(fs * (times[i] + times[i + 1]) / 2)
             ending_sample = int(fs * (times[i + 1]))
             overlap_starting_sample = starting_sample - \
@@ -235,7 +235,7 @@ def get_filenames(file_extension):
     #from glob import iglob
     # for fname in iglob(corpus_path+'/'+file_extension+'/*.'+file_extension):
     # fnames.append(fname.split('/')[-1].split('.')[0])
-    for i in range(100):
+    for i in range(500):
         fnames.append('arctic_b' + str(i + 1).zfill(4))
     return fnames
 
