@@ -74,3 +74,102 @@ def get_filenames(file_extension):
     for i in range(100):
         fnames.append('arctic_b' + str(i + 1).zfill(4))
     return fnames
+def read_hts_dur(hts_dur_file):
+    f=open(hts_dur_file, 'r')
+    time = [0.0]
+    phonemes = []
+    while True:
+        f.readline();f.readline();f.readline();f.readline();f.readline()
+        line=f.readline()
+        if line == '':
+            break
+        inx=line.find('duration')
+        num_frames=int(line[inx+9:inx+12].split(' ')[0])
+        st=line.find('-')
+        en=line.find('+')
+        phoneme = line[st+1:en]
+        check = False
+        orig = phoneme
+        if orig == 'd' or orig == 't' or orig == 'p' or orig == 'b' \
+           or orig == 'k' or orig == 'g' or orig == 'ch' or orig == 'jh': 
+            check = True
+        if check: # if affreicative (needs to be split to closure and burst)
+            phoneme_closure = phoneme +  'c'
+            num_frames_closure = num_frames // 2
+            num_frames -= num_frames_closure
+            phonemes.append(cmuclosure_to_worldbet[phoneme_closure])
+            phonemes.append(cmuclosure_to_worldbet[phoneme])
+            time.append(num_frames_closure+time[-1])
+            time.append(num_frames+time[-1])
+            #print '***'
+            #print phonemes[-2], time[-2]
+            #print phonemes[-1], time[-1]
+
+
+        else:
+            phonemes.append(cmuclosure_to_worldbet[phoneme])
+            time.append(num_frames+time[-1])
+            #print phonemes[-1], time[-1]
+    duration = time[-1]
+    for i in range(len(time)):
+        time[i] *= (0.005)
+    #for i in range(len(phonemes)):
+        #print phonemes[i], time[i], time[i+1]
+    
+    value = np.array(phonemes, dtype=unicode)
+    time = (np.array(time)*16000).astype(np.int32)
+    return time, value
+
+def read_hts_pit(hts_pit_file):
+    f = open(hts_pit_file, 'rb')
+    pit = np.zeros(duration)
+    cnt = 0
+    import struct
+    while True:
+	x = f.read(4)
+	if x == '':
+	    break	   
+	pit[cnt] = struct.unpack('f', x)[0]
+	cnt += 1
+    f.close()
+    pit = np.exp(pit)
+    #pit[pit!=0] = 48000.0/pit[pit!=0]
+    time_pit = np.linspace(0, duration*(0.005)*16000, pit.shape[0])
+    pit_no_zero = pit[pit!=0]
+    time_pit_no_zero = time_pit[pit!=0].astype(np.int32)
+    #pit_track = track.TimeValue(time_pit_no_zero, pit_no_zero, 16000, int(duration*(0.005)*16000+1))
+    vox_val = []
+    vox_time = [0]
+    in_voiced_region = False
+    for i in range(pit.shape[0]):
+	if pit[i] > 0 and not in_voiced_region:
+	    vox_time.append(time_pit[i-1])
+	    vox_val.append(0)
+	    in_voiced_region = True
+	if pit[i] == 0 and in_voiced_region:
+	    vox_time.append(time_pit[i-1])
+	    vox_val.append(1)
+	    in_voiced_region = False
+    return time_pit_no_zero, pit_no_zero, np.array(vox_time, np.int32), np.array(vox_val, np.int32)
+    
+def read_hts_for(hts_for_file):
+    f = open(hts_for_file, 'rb')
+    frm = np.zeros((10000,8))
+    cnt = 0
+    import struct
+    while True:
+	for j in range(8):
+	    x = f.read(4)
+	    if x == '':
+		break	   
+	    frm[cnt, j] = struct.unpack('f', x)[0]
+	if x == '':
+	    break
+	cnt += 1
+    frm=frm[:cnt,:]
+    f.close()
+    
+    time = np.linspace(0, cnt*(0.005), frm.shape[0])
+    
+    return time, frm
+    

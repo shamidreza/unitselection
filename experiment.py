@@ -13,6 +13,15 @@ from search import *
 from generate_speech import *
 
 if __name__ == "__main__":
+    if 1: # test read_dur,pit,for methods
+        dur_file='/Users/hamid/Code/hts/HTS-demo_CMU-ARCTIC-SLT2/gen/qst001/ver1/2mix/2/alice01.dur'
+        for_file='/Users/hamid/Code/hts/HTS-demo_CMU-ARCTIC-SLT2/gen/qst001/ver1/2mix/2/alice01.for'
+        pit_file='/Users/hamid/Code/hts/HTS-demo_CMU-ARCTIC-SLT2/gen/qst001/ver1/2mix/2/alice01.pit'
+        a=read_hts_for(for_file)
+        b=read_hts_pit(for_file)
+        c=read_hts_dur(dur_file)
+        pass
+
     fname = 'arctic_a0001'
     lab_name=corpus_path+'/lab/'+fname+'.lab'
     wav_name=corpus_path+'/wav/'+fname+'.wav'
