@@ -8,6 +8,7 @@ This file includes the code for searching through the units to find the best con
 The input is a .lab file. (A seperate text2normalizedtext2phone module is needed 
 to process raw text, which is not included in this software.)
 """
+from utils import *
 from extract_unit_info import *
 
 def load_units():
@@ -159,7 +160,7 @@ if __name__ == "__main__":
         target_units[j] = tmp_units[j]
         
     units, fnames=load_units()
-    units = units[:int(units.shape[0]*(100.0/500.0))]
+    units = units[:int(units.shape[0]*(100.0/100.0))]
     best_units_indice=search(target_units, units,limit=20)
     best_units = units[best_units_indice]
     for i in xrange(target_units.shape[0]):

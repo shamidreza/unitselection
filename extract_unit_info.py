@@ -9,17 +9,9 @@ CMU-Arctic corpus) and extracting the unit information needed as part of
 the unit-selection engine.
 """
 import numpy as np
-from scipy.io.wavfile import read as wread
-from os.path import exists
 from collections import namedtuple
-from scipy.fftpack import dct, idct
-try:
-    from matplotlib import pyplot as pp
-except:
-    print 'Could not load matplotlib'
-# change corpus_path to refer to your local version of the repository
-# It assumes there are 'wav', 'lab', and 'pm' directories are available in data
-corpus_path = '/Users/hamid/Code/gitlab/voice-conversion/src/lib/arctic/cmu_us_slt_arctic'
+from utils import *
+
 # phoneme group info., for improving the search
 phoneme_category = {'aa': 'vowel_mid',  # bot
                     'ae': 'vowel_mid',  # bat
@@ -86,47 +78,6 @@ left_phone_category right_phone_category filename starting_sample \
 ending_sample overlap_starting_sample overlap_ending_sample left_CEP \
 right_CEP unit_id")
 
-
-def read_wav(wav_fname):
-    if not exists(wav_fname):
-        raise IOError, 'The following file does not exist: ' + wav_fname
-    fs, wav = wread(wav_fname)
-    return fs, wav
-
-
-def read_lab(lab_fname):
-    if not exists(lab_fname):
-        raise IOError, 'The following file does not exist: ' + lab_fname
-    f = open(lab_fname, 'r')
-    times = [0.0]
-    lab = []
-    for line in f:
-        line = line[:-1]
-        if line == '#':
-            continue
-        pars = line.split(' ')
-        times.append(float(pars[0]))
-        lab.append(pars[-1])
-
-    return times, lab
-
-
-def read_pm(pm_fname):
-    if not exists(pm_fname):
-        raise IOError, 'The following file does not exist: ' + pm_fname
-    f = open(pm_fname, 'r')
-    times = []
-    cnt = 0
-    for line in f:
-        line = line[:-1]
-        if cnt < 6:
-            cnt += 1
-            continue
-        pars = line.split(' ')
-        times.append(float(pars[0]))
-    return times
-
-
 def extract_info(lab_path, wav_path, start_uid, file_number):
     times, labs = read_lab(lab_path)
     fs, wav = read_wav(wav_path)
@@ -162,7 +113,7 @@ def extract_info(lab_path, wav_path, start_uid, file_number):
                             overlap_ending_sample=overlap_ending_sample,
                             left_CEP=left_CEP, right_CEP=right_CEP)
             units.append(cur_unit)
-    for i in range(len(labs)):
+    for i in range(1,len(labs)-1):
         if 1:  # compute left phones
             phone = labs[i]+'_L'  # +'_'+'*'
             left_phone = labs[max(i-1,0)]##labs[i - 1]
@@ -225,20 +176,65 @@ def extract_info(lab_path, wav_path, start_uid, file_number):
     return units
 
 
-def compute_cepstrum(wav_frame):
-    spectrum = np.log(np.abs(np.fft.fft(wav_frame)))
-    cep = dct(spectrum, norm='ortho')
-    return cep
+
+def read_input_lab(lab_path):
+    times, labs = read_lab(lab_path)
+    units = []
+    for i in range(len(labs)):
+        if 1:  # compute left phones
+            phone = labs[i]+'_L'  # +'_'+'*'
+            left_phone = labs[max(i-1,0)]##labs[i - 1]
+            right_phone = labs[min(i+1,len(labs)-1)]##labs[i + 1]
+            left_phone_cat = phoneme_category[left_phone]
+            right_phone_cat = phoneme_category[right_phone]
+            starting_sample = None
+            ending_sample = None
+            overlap_starting_sample = None
+            overlap_ending_sample = None
+            left_CEP = None
+            right_CEP = None
+
+            cur_unit = Unit(LR='L', phone=phone,
+                            left_phone=left_phone,
+                            right_phone=right_phone,
+                            left_phone_category=left_phone_cat,
+                            right_phone_category=right_phone_cat,
+                            filename=file_number,
+                            starting_sample=starting_sample,
+                            ending_sample=ending_sample,
+                            overlap_starting_sample=overlap_starting_sample,
+                            overlap_ending_sample=overlap_ending_sample,
+                            left_CEP=left_CEP, right_CEP=right_CEP, unit_id=start_uid + i * 2)
+            units.append(cur_unit)
+        if 1:  # compute right phones
+            phone = labs[i]+'_R'   # +'_'+'*'
+            left_phone = labs[max(i-1,0)]
+            right_phone = labs[min(i+1,len(labs)-1)]
+            left_phone_cat = phoneme_category[left_phone]
+            right_phone_cat = phoneme_category[right_phone]
+            starting_sample = None
+            ending_sample = None
+            overlap_starting_sample = None
+            overlap_ending_sample = None
+            left_CEP = None
+            right_CEP = None
+
+            cur_unit = Unit(LR='R', phone=phone,
+                            left_phone=left_phone,
+                            right_phone=right_phone,
+                            left_phone_category=left_phone_cat,
+                            right_phone_category=right_phone_cat,
+                            filename=file_number,
+                            starting_sample=starting_sample,
+                            ending_sample=ending_sample,
+                            overlap_starting_sample=overlap_starting_sample,
+                            overlap_ending_sample=overlap_ending_sample,
+                            left_CEP=left_CEP, right_CEP=right_CEP, unit_id=start_uid + i * 2 + 1)
+            units.append(cur_unit)
+
+    return units
 
 
-def get_filenames(file_extension):
-    fnames = []
-    #from glob import iglob
-    # for fname in iglob(corpus_path+'/'+file_extension+'/*.'+file_extension):
-    # fnames.append(fname.split('/')[-1].split('.')[0])
-    for i in range(500):
-        fnames.append('arctic_b' + str(i + 1).zfill(4))
-    return fnames
 
 if __name__ == "__main__":
     fnames = get_filenames('lab')
