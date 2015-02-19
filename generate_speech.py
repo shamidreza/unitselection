@@ -65,7 +65,7 @@ def concatenate_units_overlap(units, fnames, overlap=0.2):
         cur_wav = copy.deepcopy(wav[st-int(overlap*abs(st_ov-st)):en+int(overlap*abs(en_ov-en))])
         cur_wav[:int(overlap*abs(st_ov-st))] *= np.linspace(0.0,1.0,int(overlap*abs(st_ov-st)))
         cur_wav[-int(overlap*abs(en_ov-en)):] *= np.linspace(1.0,0.0,int(overlap*abs(en_ov-en)))
-        if cur-abs(st_ov-st) < 0:
+        if cur-int(overlap*abs(st_ov-st)) < 0:
             wavs[:cur-int(overlap*abs(st_ov-st))+cur_wav.shape[0]] += \
                 cur_wav[-(cur-int(overlap*abs(st_ov-st))+cur_wav.shape[0]):]
         else:

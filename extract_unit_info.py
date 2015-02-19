@@ -162,13 +162,13 @@ def extract_info(lab_path, wav_path, start_uid, file_number):
                             overlap_ending_sample=overlap_ending_sample,
                             left_CEP=left_CEP, right_CEP=right_CEP)
             units.append(cur_unit)
-    for i in range(1, len(labs) - 1):
+    for i in range(len(labs)):
         if 1:  # compute left phones
             phone = labs[i]+'_L'  # +'_'+'*'
-            left_phone = labs[i-1]##labs[i - 1]
-            right_phone = labs[i+1]##labs[i + 1]
-            left_phone_cat = phoneme_category[labs[i-1]]
-            right_phone_cat = phoneme_category[labs[i+1]]
+            left_phone = labs[max(i-1,0)]##labs[i - 1]
+            right_phone = labs[min(i+1,len(labs)-1)]##labs[i + 1]
+            left_phone_cat = phoneme_category[left_phone]
+            right_phone_cat = phoneme_category[right_phone]
             starting_sample = int(fs * (times[i]))
             ending_sample = int(fs * (times[i] + times[i + 1]) / 2)
             overlap_starting_sample = starting_sample - \
@@ -178,7 +178,7 @@ def extract_info(lab_path, wav_path, start_uid, file_number):
             left_CEP = compute_cepstrum(
                 wav[starting_sample:starting_sample + int(0.025 * fs)])[1:21]
             right_CEP = compute_cepstrum(
-                wav[ending_sample - int(0.025 * fs):ending_sample])[1:21]
+                wav[max(0,ending_sample - int(0.025 * fs)):ending_sample])[1:21]
 
             cur_unit = Unit(LR='L', phone=phone,
                             left_phone=left_phone,
@@ -194,10 +194,10 @@ def extract_info(lab_path, wav_path, start_uid, file_number):
             units.append(cur_unit)
         if 1:  # compute right phones
             phone = labs[i]+'_R'   # +'_'+'*'
-            left_phone = labs[i-1]
-            right_phone = labs[i+1]
-            left_phone_cat = phoneme_category[labs[i-1]]
-            right_phone_cat = phoneme_category[labs[i+1]]
+            left_phone = labs[max(i-1,0)]
+            right_phone = labs[min(i+1,len(labs)-1)]
+            left_phone_cat = phoneme_category[left_phone]
+            right_phone_cat = phoneme_category[right_phone]
             starting_sample = int(fs * (times[i] + times[i + 1]) / 2)
             ending_sample = int(fs * (times[i + 1]))
             overlap_starting_sample = starting_sample - \
@@ -207,7 +207,7 @@ def extract_info(lab_path, wav_path, start_uid, file_number):
             left_CEP = compute_cepstrum(
                 wav[starting_sample:starting_sample + int(0.025 * fs)])[1:21]
             right_CEP = compute_cepstrum(
-                wav[ending_sample - int(0.025 * fs):ending_sample])[1:21]
+                wav[max(0,ending_sample - int(0.025 * fs)):ending_sample])[1:21]
 
             cur_unit = Unit(LR='R', phone=phone,
                             left_phone=left_phone,

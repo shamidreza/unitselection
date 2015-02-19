@@ -22,8 +22,8 @@ if __name__ == "__main__":
         target_units[j] = tmp_units[j]
         
     units, fnames=load_units()
-    units = units[:int(units.shape[0]*(100.0/500.0))]
-    best_units_indice=search(target_units, units,limit=20)
+    units = units[:int(units.shape[0]*(500.0/500.0))]
+    best_units_indice=search(target_units, units,limit=50)
     best_units = units[best_units_indice]
     for i in xrange(target_units.shape[0]):
         print target_units[i].phone, best_units[i].phone, best_units[i].unit_id
