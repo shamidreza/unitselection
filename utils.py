@@ -93,21 +93,30 @@ def read_hts_dur(hts_dur_file):
         if orig == 'd' or orig == 't' or orig == 'p' or orig == 'b' \
            or orig == 'k' or orig == 'g' or orig == 'ch' or orig == 'jh': 
             check = True
-        if check: # if affreicative (needs to be split to closure and burst)
-            phoneme_closure = phoneme +  'c'
-            num_frames_closure = num_frames // 2
-            num_frames -= num_frames_closure
-            phonemes.append(cmuclosure_to_worldbet[phoneme_closure])
-            phonemes.append(cmuclosure_to_worldbet[phoneme])
-            time.append(num_frames_closure+time[-1])
+        #if check: # if affreicative (needs to be split to closure and burst)
+            #phoneme_closure = phoneme +  'c'
+            #num_frames_closure = num_frames // 2
+            #num_frames -= num_frames_closure
+            #phonemes.append(cmuclosure_to_worldbet[phoneme_closure])
+            #phonemes.append(cmuclosure_to_worldbet[phoneme])
+            #time.append(num_frames_closure+time[-1])
+            #time.append(num_frames+time[-1])
+	if True: # if affreicative (needs to be split to closure and burst)
+            #phoneme_closure = phoneme +  'c'
+            #num_frames_closure = num_frames // 2
+            #num_frames -= num_frames_closure
+            #phonemes.append(cmuclosure_to_worldbet[phoneme_closure])
+            phonemes.append(phoneme)#cmuclosure_to_worldbet[phoneme])
+            #time.append(num_frames_closure+time[-1])
             time.append(num_frames+time[-1])
+
             #print '***'
             #print phonemes[-2], time[-2]
             #print phonemes[-1], time[-1]
 
 
         else:
-            phonemes.append(cmuclosure_to_worldbet[phoneme])
+            phonemes.append(phoneme)#cmuclosure_to_worldbet[phoneme])
             time.append(num_frames+time[-1])
             #print phonemes[-1], time[-1]
     duration = time[-1]
@@ -117,12 +126,12 @@ def read_hts_dur(hts_dur_file):
         #print phonemes[i], time[i], time[i+1]
     
     value = np.array(phonemes, dtype=unicode)
-    time = (np.array(time)*16000).astype(np.int32)
+    time = (np.array(time))#.astype(np.int32)
     return time, value
 
 def read_hts_pit(hts_pit_file):
     f = open(hts_pit_file, 'rb')
-    pit = np.zeros(duration)
+    pit = np.zeros(100000)
     cnt = 0
     import struct
     while True:
@@ -131,12 +140,13 @@ def read_hts_pit(hts_pit_file):
 	    break	   
 	pit[cnt] = struct.unpack('f', x)[0]
 	cnt += 1
+    pit=pit[:cnt]
     f.close()
     pit = np.exp(pit)
     #pit[pit!=0] = 48000.0/pit[pit!=0]
-    time_pit = np.linspace(0, duration*(0.005)*16000, pit.shape[0])
+    time_pit = np.linspace(0, cnt*(0.005), pit.shape[0])
     pit_no_zero = pit[pit!=0]
-    time_pit_no_zero = time_pit[pit!=0].astype(np.int32)
+    time_pit_no_zero = time_pit[pit!=0]#.astype(np.int32)
     #pit_track = track.TimeValue(time_pit_no_zero, pit_no_zero, 16000, int(duration*(0.005)*16000+1))
     vox_val = []
     vox_time = [0]
@@ -150,7 +160,7 @@ def read_hts_pit(hts_pit_file):
 	    vox_time.append(time_pit[i-1])
 	    vox_val.append(1)
 	    in_voiced_region = False
-    return time_pit_no_zero, pit_no_zero, np.array(vox_time, np.int32), np.array(vox_val, np.int32)
+    return time_pit_no_zero, pit_no_zero, np.array(vox_time), np.array(vox_val, np.int32)
     
 def read_hts_for(hts_for_file):
     f = open(hts_for_file, 'rb')
@@ -172,4 +182,3 @@ def read_hts_for(hts_for_file):
     time = np.linspace(0, cnt*(0.005), frm.shape[0])
     
     return time, frm
-    

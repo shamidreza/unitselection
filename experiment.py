@@ -16,10 +16,11 @@ if __name__ == "__main__":
     if 1: # test read_dur,pit,for methods
         dur_file='/Users/hamid/Code/hts/HTS-demo_CMU-ARCTIC-SLT2/gen/qst001/ver1/2mix/2/alice01.dur'
         for_file='/Users/hamid/Code/hts/HTS-demo_CMU-ARCTIC-SLT2/gen/qst001/ver1/2mix/2/alice01.for'
-        pit_file='/Users/hamid/Code/hts/HTS-demo_CMU-ARCTIC-SLT2/gen/qst001/ver1/2mix/2/alice01.pit'
-        a=read_hts_for(for_file)
-        b=read_hts_pit(for_file)
-        c=read_hts_dur(dur_file)
+        pit_file='/Users/hamid/Code/hts/HTS-demo_CMU-ARCTIC-SLT2/gen/qst001/ver1/2mix/2/alice01.lf0'
+
+        #a=read_hts_for(for_file)
+        #b=read_hts_pit(pit_file)
+        #c=read_hts_dur(dur_file)
         pass
 
     fname = 'arctic_a0001'
