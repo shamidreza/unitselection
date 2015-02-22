@@ -40,11 +40,17 @@ if __name__ == "__main__":
     target_units = np.zeros(len(tmp_units), 'object')
     for j in xrange(len(tmp_units)):
         target_units[j] = tmp_units[j]
-        
-    units, fnames=load_units()
-    units = units[:int(units.shape[0]*(100.0/100.0))]
-    best_units_indice=search(target_units, units,limit=20)
-    best_units = units[best_units_indice]
+    if 0:
+        units, fnames=load_units()
+        units = units[:int(units.shape[0]*(100.0/100.0))]
+        best_units_indice=search(target_units, units,limit=20)
+        best_units = units[best_units_indice]
+    else:
+        f=open('tmp2.pkl','r')
+        import pickle
+        best_units=pickle.load(f)
+        fnames=pickle.load(f)
+        f.close()
     for i in xrange(target_units.shape[0]):
         print target_units[i].phone, best_units[i].phone, best_units[i].unit_id
     #wavs=concatenate_units_overlap(best_units, fnames)
@@ -55,7 +61,7 @@ if __name__ == "__main__":
     gcis *= 16000
     gcis = gcis.astype(np.uint32)
     
-    wavs=concatenate_units_psola(best_units, fnames, times, gcis)
+    wavs=concatenate_units_psola_nooverlap(best_units, fnames, times, gcis)
 
     from scipy.io.wavfile import write as wwrite
     wwrite('out.wav', 16000, wavs)

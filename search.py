@@ -113,6 +113,8 @@ def search(target_units, all_units, limit=20):
     target_indice = np.zeros((target_units.shape[0], limit), dtype=np.uint)
     # compute target costs
     for t in range(target_units.shape[0]):
+        print t
+
         cur_distances = np.zeros(all_units.shape[0])
         for j in range(all_units.shape[0]):
             cur_distances[j] = target_cost(target_units[t], all_units[j])
@@ -127,6 +129,7 @@ def search(target_units, all_units, limit=20):
     score[0, :] = target_score[0, :]
     
     for t in xrange(1,target_units.shape[0]):
+        print t
         for j in xrange(limit): # to
             score_imin = 1000000
             score_min = 10000000.0
