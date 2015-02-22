@@ -79,8 +79,8 @@ def concatenate_units_overlap(units, fnames, overlap=0.2):
     return wavs[:cur]
 
 def concatenate_units_duration_overlap(units, fnames, times, overlap=0.2):
-    wavs = np.zeros((16000*10),dtype=np.int16)
-    wavs_debug = np.zeros((16000*10,units.shape[0]),dtype=np.int16)
+    wavs = np.zeros((16000*30),dtype=np.int16)
+    wavs_debug = np.zeros((16000*30,units.shape[0]),dtype=np.int16)
     cur = 0
     i = 0
     while True:
@@ -111,8 +111,81 @@ def concatenate_units_duration_overlap(units, fnames, times, overlap=0.2):
             break
     return wavs[:cur]
     
-    
+def pit2gci(pit_fname):
+    times, pits, vox_times, vox_vals = read_hts_pit(pit_fname)
+    gcis = np.zeros((10000))
+    #gcis2 = np.zeros((1000000), dtype=np.uint32)
 
+    cur = 0
+    cur_pi = 0
+    cur_vi = 0
+    cnt = 0
+    mean_p = pits.mean()
+    std_p = pits.std()
+
+    while True:
+        if vox_vals[cur_vi] == 0: # unvoiced
+            period = 1.0/(mean_p+np.random.normal()*std_p)
+        else: # voiced
+            period = (1.0/pits[cur_pi])
+        print cur, period*16000
+        cur+=period
+        if cur > times[-1]:
+            break
+        gcis[cnt] = cur
+        #gcis2[cur*16000] = 1
+        # find next closest cur_vi        
+        for i in xrange(5):
+            if vox_times[cur_vi+i]<cur and vox_times[cur_vi+i+1]>cur:
+                cur_vi = cur_vi+i
+                break
+        if vox_vals[cur_vi]: # if voiced, find next closest cur_pi
+            closest_p = 10000000
+            closest_pi = 10000000
+            for i in xrange(5):
+                if abs(1.0*times[min(cur_pi+i,pits.shape[0]-1)]-cur) < closest_p:
+                    closest_p = abs(1.0*times[min(cur_pi+i,pits.shape[0]-1)]-cur)
+                    closest_pi = cur_pi+i
+                    
+            assert closest_p != 10000000
+            cur_pi = closest_pi
         
-        
-        
+        cnt += 1
+    gcis=gcis[:cnt]
+    return gcis
+
+def concatenate_units_psola(units, fnames, times, gcis, overlap=0.2):
+    wavs = np.zeros((16000*30),dtype=np.int16)
+    wavs_debug = np.zeros((16000*30,units.shape[0]),dtype=np.int16)
+    cur = 0
+    i = 0
+    while True:
+        st = units[i].starting_sample
+        st_ov = units[i].overlap_starting_sample
+
+        en = 0
+        j = i
+        for j in range(i, units.shape[0]-1): # find consecutive
+            if units[j].unit_id != units[j+1].unit_id-1:
+                break
+        en= units[j].ending_sample
+        en_ov= units[j].overlap_ending_sample
+        wav_name=corpus_path+'/wav/'+fnames[units[i].filename]+'.wav'
+        fs, wav = read_wav(wav_name)
+        pm_name=corpus_path+'/pm/'+fnames[units[i].filename]+'.pm'
+        gcis = read_pm(pm_name)
+        cur_wav = copy.deepcopy(wav[st-int(overlap*abs(st_ov-st)):en+int(overlap*abs(en_ov-en))])
+        cur_wav[:int(overlap*abs(st_ov-st))] *= np.linspace(0.0,1.0,int(overlap*abs(st_ov-st)))
+        cur_wav[-int(overlap*abs(en_ov-en)):] *= np.linspace(1.0,0.0,int(overlap*abs(en_ov-en)))
+        if cur-int(overlap*abs(st_ov-st)) < 0:
+            wavs[:cur-int(overlap*abs(st_ov-st))+cur_wav.shape[0]] += \
+                cur_wav[-(cur-int(overlap*abs(st_ov-st))+cur_wav.shape[0]):]
+        else:
+            wavs[cur-int(overlap*abs(st_ov-st)):cur-int(overlap*abs(st_ov-st))+cur_wav.shape[0]] += cur_wav
+        cur += (en-st)
+                
+        i = j + 1
+        if i >= units.shape[0]:
+            break
+    return wavs[:cur]
+    

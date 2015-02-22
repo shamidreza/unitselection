@@ -125,9 +125,9 @@ def read_hts_dur(hts_dur_file):
     #for i in range(len(phonemes)):
         #print phonemes[i], time[i], time[i+1]
     
-    value = np.array(phonemes, dtype=unicode)
-    time = (np.array(time))#.astype(np.int32)
-    return time, value
+    #value = np.array(phonemes, dtype=unicode)
+    #time = (np.array(time))#.astype(np.int32)
+    return time, phonemes
 
 def read_hts_pit(hts_pit_file):
     f = open(hts_pit_file, 'rb')

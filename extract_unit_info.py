@@ -178,7 +178,8 @@ def extract_info(lab_path, wav_path, start_uid, file_number):
 
 
 def read_input_lab(lab_path):
-    times, labs = read_lab(lab_path)
+    ##times, labs = read_lab(lab_path)
+    times, labs = read_hts_dur(lab_path)
     units = []
     for i in range(len(labs)):
         if 1:  # compute left phones
@@ -193,7 +194,8 @@ def read_input_lab(lab_path):
             overlap_ending_sample = None
             left_CEP = None
             right_CEP = None
-
+            file_number = None
+            
             cur_unit = Unit(LR='L', phone=phone,
                             left_phone=left_phone,
                             right_phone=right_phone,
@@ -204,7 +206,7 @@ def read_input_lab(lab_path):
                             ending_sample=ending_sample,
                             overlap_starting_sample=overlap_starting_sample,
                             overlap_ending_sample=overlap_ending_sample,
-                            left_CEP=left_CEP, right_CEP=right_CEP, unit_id=start_uid + i * 2)
+                            left_CEP=left_CEP, right_CEP=right_CEP, unit_id=None)
             units.append(cur_unit)
         if 1:  # compute right phones
             phone = labs[i]+'_R'   # +'_'+'*'
@@ -218,7 +220,8 @@ def read_input_lab(lab_path):
             overlap_ending_sample = None
             left_CEP = None
             right_CEP = None
-
+            file_number = None
+            
             cur_unit = Unit(LR='R', phone=phone,
                             left_phone=left_phone,
                             right_phone=right_phone,
@@ -229,10 +232,10 @@ def read_input_lab(lab_path):
                             ending_sample=ending_sample,
                             overlap_starting_sample=overlap_starting_sample,
                             overlap_ending_sample=overlap_ending_sample,
-                            left_CEP=left_CEP, right_CEP=right_CEP, unit_id=start_uid + i * 2 + 1)
+                            left_CEP=left_CEP, right_CEP=right_CEP, unit_id=None)
             units.append(cur_unit)
 
-    return units
+    return units, times
 
 
 

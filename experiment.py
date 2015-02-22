@@ -13,6 +13,11 @@ from search import *
 from generate_speech import *
 
 if __name__ == "__main__":
+    if 0: # test pit2gci
+        pit_file='/Users/hamid/Code/hts/HTS-demo_CMU-ARCTIC-SLT2/gen/qst001/ver1/2mix/2/alice01.lf0'
+        target_gci = pit2gci(pit_file)
+        
+        
     if 1: # test read_dur,pit,for methods
         dur_file='/Users/hamid/Code/hts/HTS-demo_CMU-ARCTIC-SLT2/gen/qst001/ver1/2mix/2/alice01.dur'
         for_file='/Users/hamid/Code/hts/HTS-demo_CMU-ARCTIC-SLT2/gen/qst001/ver1/2mix/2/alice01.for'
@@ -21,14 +26,17 @@ if __name__ == "__main__":
         #a=read_hts_for(for_file)
         #b=read_hts_pit(pit_file)
         #c=read_hts_dur(dur_file)
-        pass
 
     fname = 'arctic_a0001'
     lab_name=corpus_path+'/lab/'+fname+'.lab'
     wav_name=corpus_path+'/wav/'+fname+'.wav'
+    pm_name=corpus_path+'/pm/'+fname+'.pm'
+
     ##target_units = load_input(lab_name)
-    times, lans = read_lab(lab_name)
-    tmp_units=extract_info(lab_name, wav_name, 0,0)
+    #times, labs = read_lab(lab_name)
+    ##tmp_units=extract_info(lab_name, wav_name, 0,0)
+    gcis=pit2gci(pit_file)
+    tmp_units, times=read_input_lab(dur_file)
     target_units = np.zeros(len(tmp_units), 'object')
     for j in xrange(len(tmp_units)):
         target_units[j] = tmp_units[j]
@@ -40,7 +48,7 @@ if __name__ == "__main__":
     for i in xrange(target_units.shape[0]):
         print target_units[i].phone, best_units[i].phone, best_units[i].unit_id
     #wavs=concatenate_units_overlap(best_units, fnames)
-    wavs=concatenate_units_duration_overlap(best_units, fnames, times)
+    wavs=concatenate_units_psola(best_units, fnames, times, gcis)
 
     from scipy.io.wavfile import write as wwrite
     wwrite('out.wav', 16000, wavs)
