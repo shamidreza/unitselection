@@ -154,7 +154,24 @@ def pit2gci(pit_fname):
     gcis=gcis[:cnt]
     return gcis
 
-def concatenate_units_psola(units, fnames, times, gcis, overlap=0.2):
+def _select_gci_range(gcis, st, en):
+    first_gci = 1000000
+    
+    for i in range(gcis.shape[0]):
+        if gcis[i] > st:
+            first_gci = i
+            break
+    assert  first_gci != 1000000
+    last_gci = 1000000
+    for j in range(first_gci, gcis.shape[0]):
+        if gcis[j] > en:
+            last_gci = j-1
+            break
+    if last_gci == 1000000:
+        last_gci = gcis.shape[0]-1
+    return first_gci, last_gci
+        
+def concatenate_units_psola(units, fnames, times, gcis, overlap=0.0):
     wavs = np.zeros((16000*30),dtype=np.int16)
     wavs_debug = np.zeros((16000*30,units.shape[0]),dtype=np.int16)
     cur = 0
@@ -165,15 +182,24 @@ def concatenate_units_psola(units, fnames, times, gcis, overlap=0.2):
 
         en = 0
         j = i
+        cur_dur = 0
         for j in range(i, units.shape[0]-1): # find consecutive
             if units[j].unit_id != units[j+1].unit_id-1:
                 break
+            cur_dur += (times[j+1]-times[j])
+
+        cur_dur += (times[j+1]-times[j])
+        #if j//2-1>=0:
+        #    cur_dur += (times[1+j//2]-times[j//2])//2
+
+        first_gci, last_gci = _select_gci_range(gcis, cur, cur+cur_dur)
         en= units[j].ending_sample
         en_ov= units[j].overlap_ending_sample
         wav_name=corpus_path+'/wav/'+fnames[units[i].filename]+'.wav'
         fs, wav = read_wav(wav_name)
         pm_name=corpus_path+'/pm/'+fnames[units[i].filename]+'.pm'
         gcis = read_pm(pm_name)
+        
         cur_wav = copy.deepcopy(wav[st-int(overlap*abs(st_ov-st)):en+int(overlap*abs(en_ov-en))])
         cur_wav[:int(overlap*abs(st_ov-st))] *= np.linspace(0.0,1.0,int(overlap*abs(st_ov-st)))
         cur_wav[-int(overlap*abs(en_ov-en)):] *= np.linspace(1.0,0.0,int(overlap*abs(en_ov-en)))

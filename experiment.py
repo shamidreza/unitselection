@@ -48,6 +48,13 @@ if __name__ == "__main__":
     for i in xrange(target_units.shape[0]):
         print target_units[i].phone, best_units[i].phone, best_units[i].unit_id
     #wavs=concatenate_units_overlap(best_units, fnames)
+    times = np.array(times)
+    times *= 16000
+    times = times.astype(np.uint32)
+    gcis = np.array(gcis)
+    gcis *= 16000
+    gcis = gcis.astype(np.uint32)
+    
     wavs=concatenate_units_psola(best_units, fnames, times, gcis)
 
     from scipy.io.wavfile import write as wwrite

@@ -181,6 +181,7 @@ def read_input_lab(lab_path):
     ##times, labs = read_lab(lab_path)
     times, labs = read_hts_dur(lab_path)
     units = []
+    times_units = [0.0]
     for i in range(len(labs)):
         if 1:  # compute left phones
             phone = labs[i]+'_L'  # +'_'+'*'
@@ -208,6 +209,7 @@ def read_input_lab(lab_path):
                             overlap_ending_sample=overlap_ending_sample,
                             left_CEP=left_CEP, right_CEP=right_CEP, unit_id=None)
             units.append(cur_unit)
+            times_units.append(times[i]+(times[i+1]-times[i])/2.0)
         if 1:  # compute right phones
             phone = labs[i]+'_R'   # +'_'+'*'
             left_phone = labs[max(i-1,0)]
@@ -234,8 +236,9 @@ def read_input_lab(lab_path):
                             overlap_ending_sample=overlap_ending_sample,
                             left_CEP=left_CEP, right_CEP=right_CEP, unit_id=None)
             units.append(cur_unit)
+            times_units.append(times[i+1])
 
-    return units, times
+    return units, times_units
 
 
 
