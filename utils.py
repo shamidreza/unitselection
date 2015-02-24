@@ -10,6 +10,8 @@ This file includes the code for some utility function.
 from scipy.io.wavfile import read as wread
 from os.path import exists
 from scipy.fftpack import dct, idct
+from scipy.signal import fftconvolve
+
 import numpy as np
 try:
     from matplotlib import pyplot as pp
@@ -66,6 +68,26 @@ def compute_cepstrum(wav_frame):
     return cep
 
 
+def compute_f0(wav_frame, fs):
+    """
+    Reference:
+    https://gist.github.com/endolith/255291
+    """
+    def parabolic(f, x):
+	xv = 1/2. * (f[x-1] - f[x+1]) / (f[x-1] - 2 * f[x] + f[x+1]) + x
+	yv = f[x] - 1/4. * (f[x-1] - f[x+1]) * (xv - x)
+	return (xv, yv)
+    corr = fftconvolve(wav_frame, wav_frame[::-1], mode='full')
+    corr = corr[len(corr)/2:]
+    d = np.diff(corr)
+    from matplotlib.mlab import find
+    start = find(d > 0)[0]
+    peak = np.argmax(corr[start:]) + start
+    if peak == corr.shape[0]-1:
+	px=16000
+    else:
+	px, py = parabolic(corr, peak)
+    return fs / px
 def get_filenames(file_extension):
     fnames = []
     #from glob import iglob

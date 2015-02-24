@@ -76,7 +76,7 @@ phoneme_category = {'aa': 'vowel_mid',  # bot
 Unit = namedtuple("Unit", "LR phone left_phone right_phone \
 left_phone_category right_phone_category filename starting_sample \
 ending_sample overlap_starting_sample overlap_ending_sample left_CEP \
-right_CEP unit_id")
+right_CEP pit unit_id")
 
 def extract_info(lab_path, wav_path, start_uid, file_number):
     times, labs = read_lab(lab_path)
@@ -131,6 +131,11 @@ def extract_info(lab_path, wav_path, start_uid, file_number):
             right_CEP = compute_cepstrum(
                 wav[max(0,ending_sample - int(0.025 * fs)):ending_sample])[1:21]
 
+            if ending_sample-starting_sample > 400:
+                pit = compute_f0(wav[starting_sample:ending_sample],16000)
+            else:
+                pit = compute_f0(wav[overlap_starting_sample:overlap_ending_sample],16000)
+
             cur_unit = Unit(LR='L', phone=phone,
                             left_phone=left_phone,
                             right_phone=right_phone,
@@ -141,7 +146,7 @@ def extract_info(lab_path, wav_path, start_uid, file_number):
                             ending_sample=ending_sample,
                             overlap_starting_sample=overlap_starting_sample,
                             overlap_ending_sample=overlap_ending_sample,
-                            left_CEP=left_CEP, right_CEP=right_CEP, unit_id=start_uid + i * 2)
+                            left_CEP=left_CEP, right_CEP=right_CEP, pit=pit, unit_id=start_uid + i * 2)
             units.append(cur_unit)
         if 1:  # compute right phones
             phone = labs[i]+'_R'   # +'_'+'*'
@@ -159,6 +164,10 @@ def extract_info(lab_path, wav_path, start_uid, file_number):
                 wav[starting_sample:starting_sample + int(0.025 * fs)])[1:21]
             right_CEP = compute_cepstrum(
                 wav[max(0,ending_sample - int(0.025 * fs)):ending_sample])[1:21]
+            if ending_sample-starting_sample > 400:
+                pit = compute_f0(wav[starting_sample:ending_sample],16000)
+            else:
+                pit = compute_f0(wav[overlap_starting_sample:overlap_ending_sample],16000)
 
             cur_unit = Unit(LR='R', phone=phone,
                             left_phone=left_phone,
@@ -170,16 +179,15 @@ def extract_info(lab_path, wav_path, start_uid, file_number):
                             ending_sample=ending_sample,
                             overlap_starting_sample=overlap_starting_sample,
                             overlap_ending_sample=overlap_ending_sample,
-                            left_CEP=left_CEP, right_CEP=right_CEP, unit_id=start_uid + i * 2 + 1)
+                            left_CEP=left_CEP, right_CEP=right_CEP, pit=pit, unit_id=start_uid + i * 2 + 1)
             units.append(cur_unit)
 
     return units
 
-
-
-def read_input_lab(lab_path):
+def read_input_lab(lab_path, pit_path):
     ##times, labs = read_lab(lab_path)
     times, labs = read_hts_dur(lab_path)
+    tp, p, tv, v =read_hts_pit(pit_path)
     units = []
     times_units = [0.0]
     for i in range(len(labs)):
@@ -207,7 +215,7 @@ def read_input_lab(lab_path):
                             ending_sample=ending_sample,
                             overlap_starting_sample=overlap_starting_sample,
                             overlap_ending_sample=overlap_ending_sample,
-                            left_CEP=left_CEP, right_CEP=right_CEP, unit_id=None)
+                            left_CEP=left_CEP, right_CEP=right_CEP, pit=pit, unit_id=None)
             units.append(cur_unit)
             times_units.append(times[i]+(times[i+1]-times[i])/2.0)
         if 1:  # compute right phones
@@ -222,6 +230,7 @@ def read_input_lab(lab_path):
             overlap_ending_sample = None
             left_CEP = None
             right_CEP = None
+            pit = None
             file_number = None
             
             cur_unit = Unit(LR='R', phone=phone,
@@ -234,7 +243,7 @@ def read_input_lab(lab_path):
                             ending_sample=ending_sample,
                             overlap_starting_sample=overlap_starting_sample,
                             overlap_ending_sample=overlap_ending_sample,
-                            left_CEP=left_CEP, right_CEP=right_CEP, unit_id=None)
+                            left_CEP=left_CEP, right_CEP=right_CEP, pit=pit, unit_id=None)
             units.append(cur_unit)
             times_units.append(times[i+1])
 

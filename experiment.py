@@ -36,7 +36,7 @@ if __name__ == "__main__":
     #times, labs = read_lab(lab_name)
     ##tmp_units=extract_info(lab_name, wav_name, 0,0)
     gcis=pit2gci(pit_file)
-    tmp_units, times=read_input_lab(dur_file)
+    tmp_units, times=read_input_lab(dur_file, pit_file)
     #tmp_units = tmp_units[128:140]##
     
     target_units = np.zeros(len(tmp_units), 'object')
