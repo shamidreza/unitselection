@@ -47,6 +47,12 @@ if __name__ == "__main__":
         units = units[:int(units.shape[0]*(100.0/100.0))]
         best_units_indice=search(target_units, units,limit=20)
         best_units = units[best_units_indice]
+        f=open('tmp2.pkl','w+')
+        import pickle
+        pickle.dump(best_units,f)
+        pickle.dump(fnames,f)
+        f.flush()
+        f.close()
     else:
         f=open('tmp2.pkl','r')
         import pickle

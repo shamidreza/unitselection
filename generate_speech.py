@@ -129,7 +129,7 @@ def pit2gci(pit_fname):
             period = 1.0/(mean_p+np.random.normal()*std_p)
         else: # voiced
             period = (1.0/pits[cur_pi])
-        print cur, period*16000
+        #print cur, period*16000
         cur+=period
         if cur > times[-1]:
             break
@@ -173,10 +173,13 @@ def _select_gci_range(gcis, st, en):
     return first_gci, last_gci
         
 def _psola(output_gcis, input_gcis, input_wav):
+    output_gcis = output_gcis.astype(np.int32)
+    input_gcis = input_gcis.astype(np.int32)
     num_input_frames = input_gcis.shape[0]-2
     num_output_frames = output_gcis.shape[0]-2
     out_wav = np.zeros((output_gcis[-1]-output_gcis[0]))
     out_wav_debug = np.zeros((output_gcis[-1]-output_gcis[0], 1000))
+    
 
     for i in range(1, output_gcis.shape[0]-1):
         sample_out = (output_gcis[i]-output_gcis[0])/float(output_gcis[-1]-output_gcis[0])
@@ -190,8 +193,13 @@ def _psola(output_gcis, input_gcis, input_wav):
         left_out[-1*min(left_input_size, left_output_size):] = \
             copy.deepcopy(left_inp[-1*min(left_input_size, left_output_size):])
         ##left_out *= np.linspace(0.0, 1.0, left_out.shape[0])
+        # linear
+        #left_out[-1*min(left_input_size, left_output_size):] *= \
+            #np.linspace(0.0, 1.0, min(left_input_size, left_output_size))
+        # hanning
         left_out[-1*min(left_input_size, left_output_size):] *= \
-            np.linspace(0.0, 1.0, min(left_input_size, left_output_size))
+            np.hanning(min(left_input_size, left_output_size)*2)[:min(left_input_size, left_output_size)]
+            #np.linspace(0.0, 1.0, min(left_input_size, left_output_size))
         right_input_size = input_gcis[sample_inp+1]-input_gcis[sample_inp]
         right_output_size = output_gcis[i+1]-output_gcis[i]
         right_inp = input_wav[input_gcis[sample_inp]:input_gcis[sample_inp+1]]
@@ -199,14 +207,33 @@ def _psola(output_gcis, input_gcis, input_wav):
         right_out[:min(right_output_size,right_input_size)] = \
             copy.deepcopy(right_inp[:min(right_output_size,right_input_size)])
         ##right_out *= np.linspace(1.0, 0.0, right_out.shape[0])
+        # linear
+        #right_out[:min(right_output_size,right_input_size)] *= \
+            #np.linspace(1.0, 0.0, min(right_output_size,right_input_size))
+        # hanning
         right_out[:min(right_output_size,right_input_size)] *= \
-            np.linspace(1.0, 0.0, min(right_output_size,right_input_size))
-
-        out_wav[output_gcis[i-1]-output_gcis[0]:output_gcis[i+1]-output_gcis[0]] += np.r_[left_out, right_out]
-        out_wav_debug[output_gcis[i-1]-output_gcis[0]:output_gcis[i+1]-output_gcis[0], i-1] = np.r_[left_out, right_out]
+            np.hanning(min(right_output_size,right_input_size)*2)[min(right_output_size,right_input_size):]
+            #np.linspace(1.0, 0.0, min(right_output_size,right_input_size))
+            
+        if 1: # true psola
+            out_wav[output_gcis[i-1]-output_gcis[0]:output_gcis[i+1]-output_gcis[0]] += np.r_[left_out, right_out]
+            out_wav_debug[output_gcis[i-1]-output_gcis[0]:output_gcis[i+1]-output_gcis[0], i-1] = np.r_[left_out, right_out]
+        else: # only right
+            out_wav[output_gcis[i]-output_gcis[0]:output_gcis[i+1]-output_gcis[0]] = right_out
+            out_wav_debug[output_gcis[i]-output_gcis[0]:output_gcis[i+1]-output_gcis[0], i-1] = right_out
+        
+            
     if 0: ## vis
+        pp.subplot(311)
+        pp.plot(out_wav)
+
+        pp.subplot(312)
         for j in range(output_gcis.shape[0]-2):
             pp.plot(out_wav_debug[:,j])
+        pp.plot(output_gcis-output_gcis[0], np.ones(output_gcis.shape[0])*2000, '*')
+        pp.subplot(313)
+        pp.plot(input_wav[input_gcis[0]:input_gcis[-1]])
+        pp.plot(input_gcis-input_gcis[0], np.ones(input_gcis.shape[0])*2000, '*')
         pp.show()
     return out_wav
 def concatenate_units_psola_nooverlap(units, fnames, times, gcis):

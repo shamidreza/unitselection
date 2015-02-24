@@ -182,7 +182,27 @@ def read_hts_pit(hts_pit_file):
 	    vox_time.append(time_pit[i-1])
 	    vox_val.append(1)
 	    in_voiced_region = False
+    #pit_no_zero += 50##
     return time_pit_no_zero, pit_no_zero, np.array(vox_time), np.array(vox_val, np.int32)
+    
+def read_hts_pit_withzero(hts_pit_file):
+    f = open(hts_pit_file, 'rb')
+    pit = np.zeros(100000)
+    cnt = 0
+    import struct
+    while True:
+	x = f.read(4)
+	if x == '':
+	    break	   
+	pit[cnt] = struct.unpack('f', x)[0]
+	cnt += 1
+    pit=pit[:cnt]
+    f.close()
+    pit = np.exp(pit)
+    #pit += 50##
+    #pit[pit!=0] = 48000.0/pit[pit!=0]
+    time_pit = np.linspace(0, cnt*(0.005), pit.shape[0])
+    return time_pit, pit
     
 def read_hts_for(hts_for_file):
     f = open(hts_for_file, 'rb')

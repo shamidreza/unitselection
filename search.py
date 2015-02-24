@@ -82,6 +82,7 @@ def target_cost(target_unit, unit):
         cost += 0.01 * (target_unit.right_phone_category==unit.right_phone_category)
         cost += 0.3 * (target_unit.left_phone==unit.left_phone)
         cost += 0.1 * (target_unit.left_phone_category==unit.left_phone_category)
+    cost -= 0.05*abs((target_unit.pit==unit.pit))
     cost *= (target_unit.phone == unit.phone)
 
     return -cost

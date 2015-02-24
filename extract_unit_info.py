@@ -73,11 +73,32 @@ phoneme_category = {'aa': 'vowel_mid',  # bot
 # right_CEP: cepstrum vector of the furthest right frame
 # unit_id: a unique ID assigned to the unit
 
-Unit = namedtuple("Unit", "LR phone left_phone right_phone \
+Unit_old = namedtuple("Unit", "LR phone left_phone right_phone \
 left_phone_category right_phone_category filename starting_sample \
 ending_sample overlap_starting_sample overlap_ending_sample left_CEP \
 right_CEP pit unit_id")
 
+class Unit:
+    def __init__(self, LR, phone, left_phone, right_phone, \
+                 left_phone_category, right_phone_category, filename, starting_sample, \
+                 ending_sample, overlap_starting_sample, overlap_ending_sample, left_CEP, \
+                 right_CEP, pit, unit_id):
+        self.LR = LR
+        self.phone = phone
+        self.left_phone = left_phone
+        self.right_phone = right_phone
+        self.left_phone_category = left_phone_category
+        self.right_phone_category = right_phone_category
+        self.filename = filename
+        self.starting_sample = starting_sample
+        self.ending_sample = ending_sample
+        self.overlap_starting_sample = overlap_starting_sample
+        self.overlap_ending_sample = overlap_ending_sample
+        self.left_CEP = left_CEP
+        self.right_CEP = right_CEP
+        self.pit = pit
+        self.unit_id = unit_id
+        
 def extract_info(lab_path, wav_path, start_uid, file_number):
     times, labs = read_lab(lab_path)
     fs, wav = read_wav(wav_path)
@@ -187,7 +208,7 @@ def extract_info(lab_path, wav_path, start_uid, file_number):
 def read_input_lab(lab_path, pit_path):
     ##times, labs = read_lab(lab_path)
     times, labs = read_hts_dur(lab_path)
-    tp, p, tv, v =read_hts_pit(pit_path)
+    tp, p, = read_hts_pit_withzero(pit_path)
     units = []
     times_units = [0.0]
     for i in range(len(labs)):
@@ -203,6 +224,9 @@ def read_input_lab(lab_path, pit_path):
             overlap_ending_sample = None
             left_CEP = None
             right_CEP = None
+            ix = times[i]+(times[i+1]-times[i])/4.0
+            pit=p[np.abs(tp-ix).argmin()]
+            
             file_number = None
             
             cur_unit = Unit(LR='L', phone=phone,
@@ -230,8 +254,9 @@ def read_input_lab(lab_path, pit_path):
             overlap_ending_sample = None
             left_CEP = None
             right_CEP = None
-            pit = None
             file_number = None
+            ix = times[i]+3.0*(times[i+1]-times[i])/4.0
+            pit=p[np.abs(tp-ix).argmin()]
             
             cur_unit = Unit(LR='R', phone=phone,
                             left_phone=left_phone,
