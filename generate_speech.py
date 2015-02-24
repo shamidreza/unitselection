@@ -20,7 +20,7 @@ from extract_unit_info import *
 import copy
 
 def concatenate_units_nooverlap(units, fnames):
-    wavs = np.zeros((16000*10),dtype=np.int16)
+    wavs = np.zeros((16000*30),dtype=np.int16)
     cur = 0
     i = 0
     while True:
@@ -113,6 +113,7 @@ def concatenate_units_duration_overlap(units, fnames, times, overlap=0.2):
     
 def pit2gci(pit_fname):
     times, pits, vox_times, vox_vals = read_hts_pit(pit_fname)
+    ##pits += 50##
     gcis = np.zeros((10000))
     #gcis2 = np.zeros((1000000), dtype=np.uint32)
 
@@ -175,6 +176,8 @@ def _psola(output_gcis, input_gcis, input_wav):
     num_input_frames = input_gcis.shape[0]-2
     num_output_frames = output_gcis.shape[0]-2
     out_wav = np.zeros((output_gcis[-1]-output_gcis[0]))
+    out_wav_debug = np.zeros((output_gcis[-1]-output_gcis[0], 1000))
+
     for i in range(1, output_gcis.shape[0]-1):
         sample_out = (output_gcis[i]-output_gcis[0])/float(output_gcis[-1]-output_gcis[0])
         #sample_inp = input_gcis[i]/float(input_gcis[-1]-input_gcis[0])
@@ -185,23 +188,33 @@ def _psola(output_gcis, input_gcis, input_wav):
         left_inp = input_wav[input_gcis[sample_inp-1]:input_gcis[sample_inp]]
         left_out = np.zeros(left_output_size)
         left_out[-1*min(left_input_size, left_output_size):] = \
-            left_inp[-1*min(left_input_size, left_output_size):]
-        left_out *= np.linspace(0.0, 1.0, left_out.shape[0])
+            copy.deepcopy(left_inp[-1*min(left_input_size, left_output_size):])
+        ##left_out *= np.linspace(0.0, 1.0, left_out.shape[0])
+        left_out[-1*min(left_input_size, left_output_size):] *= \
+            np.linspace(0.0, 1.0, min(left_input_size, left_output_size))
         right_input_size = input_gcis[sample_inp+1]-input_gcis[sample_inp]
         right_output_size = output_gcis[i+1]-output_gcis[i]
         right_inp = input_wav[input_gcis[sample_inp]:input_gcis[sample_inp+1]]
         right_out = np.zeros(right_output_size)
         right_out[:min(right_output_size,right_input_size)] = \
-            right_inp[:min(right_output_size,right_input_size)]
-        right_out *= np.linspace(1.0, 0.0, right_out.shape[0])
+            copy.deepcopy(right_inp[:min(right_output_size,right_input_size)])
+        ##right_out *= np.linspace(1.0, 0.0, right_out.shape[0])
+        right_out[:min(right_output_size,right_input_size)] *= \
+            np.linspace(1.0, 0.0, min(right_output_size,right_input_size))
 
         out_wav[output_gcis[i-1]-output_gcis[0]:output_gcis[i+1]-output_gcis[0]] += np.r_[left_out, right_out]
+        out_wav_debug[output_gcis[i-1]-output_gcis[0]:output_gcis[i+1]-output_gcis[0], i-1] = np.r_[left_out, right_out]
+    if 0: ## vis
+        for j in range(output_gcis.shape[0]-2):
+            pp.plot(out_wav_debug[:,j])
+        pp.show()
     return out_wav
 def concatenate_units_psola_nooverlap(units, fnames, times, gcis):
     wavs = np.zeros((16000*30),dtype=np.int16)
     wavs_debug = np.zeros((16000*30,units.shape[0]),dtype=np.int16)
     cur = 0
     i = 0
+    cnt = 0
     while True:
         st = units[i].starting_sample
 
@@ -230,12 +243,17 @@ def concatenate_units_psola_nooverlap(units, fnames, times, gcis):
         cur_first_gci, cur_last_gci = _select_gci_range(cur_gcis, st, en)
         cur_wav=_psola(gcis[first_gci:last_gci+1], cur_gcis[cur_first_gci:cur_last_gci+1], wav)
         wavs[gcis[first_gci]:gcis[last_gci]] += cur_wav.astype(np.int16)
-        wavs_debug[gcis[first_gci]:gcis[last_gci], i] += cur_wav.astype(np.int16)
-
-        cur += (en-st)
-                
+        wavs_debug[gcis[first_gci]:gcis[last_gci], cnt] += cur_wav.astype(np.int16)
+        #assert cur_dur == cur_wav.shape[0]
+        #cur += (en-st)
+        cur += (gcis[last_gci]-gcis[first_gci])        
         i = j + 1
+        cnt += 1
         if i >= units.shape[0]:
             break
+    if 0: ## vis
+        for j in range(cnt):
+            pp.plot(wavs_debug[:cur,j])
+        pp.show()
     return wavs[:cur]
     
