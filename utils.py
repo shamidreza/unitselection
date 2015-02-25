@@ -167,6 +167,9 @@ def read_hts_pit(hts_pit_file):
     pit = np.exp(pit)
     #pit[pit!=0] = 48000.0/pit[pit!=0]
     time_pit = np.linspace(0, cnt*(0.005), pit.shape[0])
+    return pit_nozero_2_pit_vox(time, pit_time)
+    
+def pit_nozero_2_pit_vox(time_pit, pit):
     pit_no_zero = pit[pit!=0]
     time_pit_no_zero = time_pit[pit!=0]#.astype(np.int32)
     #pit_track = track.TimeValue(time_pit_no_zero, pit_no_zero, 16000, int(duration*(0.005)*16000+1))
@@ -184,7 +187,6 @@ def read_hts_pit(hts_pit_file):
 	    in_voiced_region = False
     #pit_no_zero += 50##
     return time_pit_no_zero, pit_no_zero, np.array(vox_time), np.array(vox_val, np.int32)
-    
 def read_hts_pit_withzero(hts_pit_file):
     f = open(hts_pit_file, 'rb')
     pit = np.zeros(100000)
@@ -224,3 +226,14 @@ def read_hts_for(hts_for_file):
     time = np.linspace(0, cnt*(0.005), frm.shape[0])
     
     return time, frm
+def gci2pit(gcis):
+    pit = np.zeros((gcis[-1]*16000.0)*0.005)
+    time = np.linspace(0.0, gcis[-1], pit.shape[0])
+    for i in range(pit.shape[0]):
+	inx=np.abs(time[i]-gcis).argmin()
+	if inx == gcis.shape[0]-1:
+	    period = gcis[inx]-gcis[inx-1]
+	else:
+	    period = gcis[inx+1]-gcis[inx]
+	pit[i] = 1.0/period
+    return time, pit

@@ -111,8 +111,8 @@ def concatenate_units_duration_overlap(units, fnames, times, overlap=0.2):
             break
     return wavs[:cur]
     
-def pit2gci(pit_fname):
-    times, pits, vox_times, vox_vals = read_hts_pit(pit_fname)
+def pit2gci(times, pits, vox_times, vox_vals):
+    #times, pits, vox_times, vox_vals = read_hts_pit(pit_fname)
     ##pits += 50##
     gcis = np.zeros((10000))
     #gcis2 = np.zeros((1000000), dtype=np.uint32)
@@ -137,9 +137,10 @@ def pit2gci(pit_fname):
         #gcis2[cur*16000] = 1
         # find next closest cur_vi        
         for i in xrange(5):
-            if vox_times[cur_vi+i]<cur and vox_times[cur_vi+i+1]>cur:
-                cur_vi = cur_vi+i
-                break
+            if cur_vi+i+1 < len(vox_times):
+                if vox_times[cur_vi+i]<cur and vox_times[cur_vi+i+1]>cur:
+                    cur_vi = cur_vi+i
+                    break
         if vox_vals[cur_vi]: # if voiced, find next closest cur_pi
             closest_p = 10000000
             closest_pi = 10000000
@@ -173,8 +174,8 @@ def _select_gci_range(gcis, st, en):
     return first_gci, last_gci
         
 def _psola(output_gcis, input_gcis, input_wav):
-    output_gcis = output_gcis.astype(np.int32)
-    input_gcis = input_gcis.astype(np.int32)
+    output_gcis = (output_gcis*16000).astype(np.int32)
+    input_gcis = (input_gcis*16000).astype(np.int32)
     num_input_frames = input_gcis.shape[0]-2
     num_output_frames = output_gcis.shape[0]-2
     out_wav = np.zeros((output_gcis[-1]-output_gcis[0]))
@@ -223,15 +224,16 @@ def _psola(output_gcis, input_gcis, input_wav):
             out_wav_debug[output_gcis[i]-output_gcis[0]:output_gcis[i+1]-output_gcis[0], i-1] = right_out
         
             
-    if 0: ## vis
-        pp.subplot(311)
+    if 1: ## vis
+        ax=pp.subplot(311)
         pp.plot(out_wav)
+        pp.plot(output_gcis-output_gcis[0], np.ones(output_gcis.shape[0])*2000, '*')
 
-        pp.subplot(312)
+        pp.subplot(312,sharex=ax)
         for j in range(output_gcis.shape[0]-2):
             pp.plot(out_wav_debug[:,j])
         pp.plot(output_gcis-output_gcis[0], np.ones(output_gcis.shape[0])*2000, '*')
-        pp.subplot(313)
+        pp.subplot(313,sharex=ax)
         pp.plot(input_wav[input_gcis[0]:input_gcis[-1]])
         pp.plot(input_gcis-input_gcis[0], np.ones(input_gcis.shape[0])*2000, '*')
         pp.show()
@@ -284,3 +286,27 @@ def concatenate_units_psola_nooverlap(units, fnames, times, gcis):
         pp.show()
     return wavs[:cur]
     
+if __name__ == "__main__":
+    fname = 'arctic_a0007'
+    lab_name=corpus_path+'/lab/'+fname+'.lab'
+    wav_name=corpus_path+'/wav/'+fname+'.wav'
+    pm_name=corpus_path+'/pm/'+fname+'.pm'
+    inp_gcis=read_pm(pm_name)
+    inp_gcis = np.array(inp_gcis)
+    time, pit = gci2pit(inp_gcis)
+    #times, pits, vox_times, vox_vals = pit_nozero_2_pit_vox(time, pit)
+    times=time
+    pits=pit
+    vox_times=[0.0, time[-1]]
+    vox_vals = [1.0]
+    inp_gcis=pit2gci(times, pits, vox_times, vox_vals)
+    out_gcis=pit2gci(times, pits, vox_times, vox_vals)
+
+    wav_name=corpus_path+'/wav/'+fname+'.wav'
+    fs, wav = read_wav(wav_name)
+    out_wav = _psola(out_gcis, inp_gcis, wav)
+    out_wav = out_wav.astype(np.int16)
+    #pp.plot(out_wav);pp.show()
+    from scipy.io.wavfile import write as wwrite
+    wwrite('out.wav', 16000, out_wav)
+    print 'successfully saved out.wav'
