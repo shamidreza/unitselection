@@ -35,7 +35,8 @@ if __name__ == "__main__":
     ##target_units = load_input(lab_name)
     #times, labs = read_lab(lab_name)
     ##tmp_units=extract_info(lab_name, wav_name, 0,0)
-    gcis=pit2gci(pit_file)
+    times, pits, vox_times, vox_vals = read_hts_pit(pit_file)
+    gcis=pit2gci(times, pits, vox_times, vox_vals)
     tmp_units, times=read_input_lab(dur_file, pit_file)
     #tmp_units = tmp_units[128:140]##
     

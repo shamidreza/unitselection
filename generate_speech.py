@@ -174,8 +174,8 @@ def _select_gci_range(gcis, st, en):
     return first_gci, last_gci
         
 def _psola(output_gcis, input_gcis, input_wav):
-    output_gcis = (output_gcis*16000).astype(np.int32)
-    input_gcis = (input_gcis*16000).astype(np.int32)
+    output_gcis = (output_gcis).astype(np.int32)
+    input_gcis = (input_gcis).astype(np.int32)
     num_input_frames = input_gcis.shape[0]-2
     num_output_frames = output_gcis.shape[0]-2
     out_wav = np.zeros((output_gcis[-1]-output_gcis[0]))
@@ -200,6 +200,8 @@ def _psola(output_gcis, input_gcis, input_wav):
         # hanning
         left_out[-1*min(left_input_size, left_output_size):] *= \
             np.hanning(min(left_input_size, left_output_size)*2)[:min(left_input_size, left_output_size)]
+        #left_out *= \
+            #np.hanning(left_out.shape[0]*2)[:left_out.shape[0]]
             #np.linspace(0.0, 1.0, min(left_input_size, left_output_size))
         right_input_size = input_gcis[sample_inp+1]-input_gcis[sample_inp]
         right_output_size = output_gcis[i+1]-output_gcis[i]
@@ -214,6 +216,9 @@ def _psola(output_gcis, input_gcis, input_wav):
         # hanning
         right_out[:min(right_output_size,right_input_size)] *= \
             np.hanning(min(right_output_size,right_input_size)*2)[min(right_output_size,right_input_size):]
+        #right_out *= \
+            #np.hanning(right_out.shape[0]*2)[right_out.shape[0]:]
+       
             #np.linspace(1.0, 0.0, min(right_output_size,right_input_size))
             
         if 1: # true psola
@@ -224,7 +229,7 @@ def _psola(output_gcis, input_gcis, input_wav):
             out_wav_debug[output_gcis[i]-output_gcis[0]:output_gcis[i+1]-output_gcis[0], i-1] = right_out
         
             
-    if 1: ## vis
+    if 0: ## vis
         ax=pp.subplot(311)
         pp.plot(out_wav)
         pp.plot(output_gcis-output_gcis[0], np.ones(output_gcis.shape[0])*2000, '*')
@@ -280,7 +285,7 @@ def concatenate_units_psola_nooverlap(units, fnames, times, gcis):
         cnt += 1
         if i >= units.shape[0]:
             break
-    if 0: ## vis
+    if 1: ## vis
         for j in range(cnt):
             pp.plot(wavs_debug[:cur,j])
         pp.show()
@@ -301,6 +306,8 @@ if __name__ == "__main__":
     vox_vals = [1.0]
     inp_gcis=pit2gci(times, pits, vox_times, vox_vals)
     out_gcis=pit2gci(times, pits, vox_times, vox_vals)
+    inp_gcis *= 16000
+    out_gcis *= 16000
 
     wav_name=corpus_path+'/wav/'+fname+'.wav'
     fs, wav = read_wav(wav_name)

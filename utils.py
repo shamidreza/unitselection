@@ -167,7 +167,7 @@ def read_hts_pit(hts_pit_file):
     pit = np.exp(pit)
     #pit[pit!=0] = 48000.0/pit[pit!=0]
     time_pit = np.linspace(0, cnt*(0.005), pit.shape[0])
-    return pit_nozero_2_pit_vox(time, pit_time)
+    return pit_nozero_2_pit_vox(time_pit, pit)
     
 def pit_nozero_2_pit_vox(time_pit, pit):
     pit_no_zero = pit[pit!=0]
