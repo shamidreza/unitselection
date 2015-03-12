@@ -113,7 +113,7 @@ def concatenate_units_duration_overlap(units, fnames, times, overlap=0.2):
     
 def pit2gci(times, pits, vox_times, vox_vals):
     #times, pits, vox_times, vox_vals = read_hts_pit(pit_fname)
-    ##pits += 50##
+    #pits += 20##
     gcis = np.zeros((10000))
     #gcis2 = np.zeros((1000000), dtype=np.uint32)
 
@@ -156,6 +156,50 @@ def pit2gci(times, pits, vox_times, vox_vals):
     gcis=gcis[:cnt]
     return gcis
 
+def units2gci(units, fnames):
+    cur = 0
+    i = 0
+    cnt = 0
+    gcis = []
+    while True:
+        st = units[i].starting_sample
+        j = i
+        for j in range(i, units.shape[0]-1): # find consecutive
+            if units[j].unit_id != units[j+1].unit_id-1:
+                break
+
+        en= units[j].ending_sample
+      
+        pm_name=corpus_path+'/pm/'+fnames[units[i].filename]+'.pm'
+        cur_gcis = read_pm(pm_name)
+        cur_gcis = np.array(cur_gcis)
+        cur_gcis *= 16000.0
+        #cur_wav = copy.deepcopy(wav[st:en])
+        cur_first_gci, cur_last_gci = _select_gci_range(cur_gcis, st, en)
+        if not gcis:
+            start_from = 0
+        else:
+            start_from = gcis[-1]
+        gcis = gcis + (cur_gcis[cur_first_gci:cur_last_gci+1]-cur_gcis[cur_first_gci]+start_from).tolist()[1:]
+        cur += (cur_gcis[cur_last_gci]-cur_gcis[cur_first_gci])        
+        i = j + 1
+        cnt += 1
+        if i >= units.shape[0]:
+            break
+    return gcis
+def units2dur(units, fnames):
+    cur = 0
+    i = 0
+    times = [0.0]
+    while True:
+        st=units[i].starting_sample
+        en= units[i].ending_sample
+        times.append(times[-1]+en-st)
+        i += 1
+        if i >= units.shape[0]:
+            break
+    return times
+
 def _select_gci_range(gcis, st, en):
     first_gci = 1000000
     
@@ -163,7 +207,7 @@ def _select_gci_range(gcis, st, en):
         if gcis[i] > st:
             first_gci = i
             break
-    assert  first_gci != 1000000
+    assert first_gci != 1000000
     last_gci = 1000000
     for j in range(first_gci, gcis.shape[0]):
         if gcis[j] > en:
@@ -291,6 +335,72 @@ def concatenate_units_psola_nooverlap(units, fnames, times, gcis):
         pp.show()
     return wavs[:cur]
     
+def concatenate_units_psola_overlap(units, fnames, times, gcis, overlap=0.1):
+    wavs = np.zeros((16000*30),dtype=np.int16)
+    wavs_debug = np.zeros((16000*30,units.shape[0]),dtype=np.int16)
+    cur = 0
+    i = 0
+    cnt = 0
+    while True:
+        st = units[i].starting_sample-int(overlap*(units[i].starting_sample-units[i].overlap_starting_sample))
+        en = 0
+        j = i
+        cur_dur = 0
+        for j in range(i, units.shape[0]-1): # find consecutive
+            if units[j].unit_id != units[j+1].unit_id-1:
+                break
+            cur_dur += (times[j+1]-times[j])
+
+        cur_dur += (times[j+1]-times[j])
+        #if j//2-1>=0:
+        #    cur_dur += (times[1+j//2]-times[j//2])//2
+        st_ov = int(overlap*(units[i].starting_sample-units[i].overlap_starting_sample))
+        en_ov = int(overlap*(units[i].overlap_ending_sample-units[i].ending_sample))
+
+        cur_ov = cur-st_ov
+        if cur_ov < 0:
+            cur_ov = 0
+            st_ov = 0
+        cur_dur_ov = cur_dur + en_ov
+
+        first_gci, last_gci = _select_gci_range(gcis, cur, cur+cur_dur)
+        first_gci_ov, last_gci_ov = _select_gci_range(gcis, cur_ov, cur+cur_dur_ov)
+
+        en= units[j].ending_sample+en_ov
+        wav_name=corpus_path+'/wav/'+fnames[units[i].filename]+'.wav'
+        fs, wav = read_wav(wav_name)
+        pm_name=corpus_path+'/pm/'+fnames[units[i].filename]+'.pm'
+        cur_gcis = read_pm(pm_name)
+        cur_gcis = np.array(cur_gcis)
+        cur_gcis *= 16000.0
+        #cur_wav = copy.deepcopy(wav[st:en])
+        cur_first_gci, cur_last_gci = _select_gci_range(cur_gcis, st, en)
+        cur_wav=_psola(gcis[first_gci_ov:last_gci_ov+1], cur_gcis[cur_first_gci:cur_last_gci+1], wav)
+        
+        wavs[gcis[first_gci_ov]:gcis[last_gci_ov]] += cur_wav.astype(np.int16)
+        wavs_debug[gcis[first_gci]:gcis[last_gci], cnt] +=\
+            cur_wav[gcis[first_gci]-gcis[first_gci_ov]:cur_wav.shape[0]-\
+                    (gcis[last_gci_ov]-gcis[last_gci])].astype(np.int16)
+        wavs_debug[gcis[first_gci_ov]:gcis[first_gci], cnt] +=\
+            cur_wav[:gcis[first_gci]-gcis[first_gci_ov]].astype(np.int16) *\
+            np.linspace(0.0, 1.0, gcis[first_gci]-gcis[first_gci_ov])
+        wavs_debug[gcis[last_gci]:gcis[last_gci_ov], cnt] +=\
+            cur_wav[cur_wav.shape[0]-(gcis[last_gci_ov]-gcis[last_gci]):].astype(np.int16) *\
+            np.linspace(1.0, 0.0, gcis[last_gci_ov]-gcis[last_gci])
+        
+        #assert cur_dur == cur_wav.shape[0]
+        #cur += (en-st)
+        cur += (gcis[last_gci]-gcis[first_gci])        
+        i = j + 1
+        cnt += 1
+        if i >= units.shape[0]:
+            break
+    if 1: ## vis
+        for j in range(cnt):
+            pp.plot(wavs_debug[:cur,j])
+        pp.show()
+    return wavs[:cur]
+    
 if __name__ == "__main__":
     fname = 'arctic_a0007'
     lab_name=corpus_path+'/lab/'+fname+'.lab'
@@ -314,6 +424,7 @@ if __name__ == "__main__":
     out_wav = _psola(out_gcis, inp_gcis, wav)
     out_wav = out_wav.astype(np.int16)
     #pp.plot(out_wav);pp.show()
+    
     from scipy.io.wavfile import write as wwrite
     wwrite('out.wav', 16000, out_wav)
     print 'successfully saved out.wav'

@@ -66,11 +66,14 @@ if __name__ == "__main__":
     #wavs=concatenate_units_overlap(best_units, fnames)
     #gcis = gcis[(gcis>times[128]) * (gcis<times[140])]
     #gcis -= times[128]
+    gcis=units2gci(best_units, fnames)##$
+
     gcis = np.array(gcis)
-    gcis *= 16000
+    ##$gcis *= 16000
     gcis = gcis.astype(np.uint32)
+    times=units2dur(best_units, fnames)##$
     times = np.array(times)
-    times *= 16000
+    ##$times *= 16000
     times = times.astype(np.uint32)
     
     
@@ -79,7 +82,7 @@ if __name__ == "__main__":
     #for i in range(len(times)):##
         #times[i] -= aa##
     
-    wavs=concatenate_units_psola_nooverlap(best_units, fnames, times, gcis)
+    wavs=concatenate_units_psola_overlap(best_units, fnames, times, gcis, overlap=0.2)
     #wavs=concatenate_units_nooverlap(best_units, fnames)
     from scipy.io.wavfile import write as wwrite
     wwrite('out.wav', 16000, wavs)
