@@ -200,6 +200,35 @@ def units2dur(units, fnames):
             break
     return times
 
+def units2for(units, fnames, times, for_time, for_val):
+    new_for_time = np.zeros(100000)
+    new_for_val = np.zeros((100000,for_val.shape[1]))
+    cur_new = 0
+    cur = 0
+    i = 0
+    while True:
+        st=units[i].starting_sample
+        en= units[i].ending_sample
+        ust = times[i]
+        uen = times[i+1]
+        ust_nearest = np.abs(ust-for_time).argmin()
+        uen_nearest = np.abs(uen-for_time).argmin()
+        st_nearest = cur_new
+        en_nearest = st_nearest + (en-st)/80#framesize
+        for k in range(for_val.shape[1]):
+            new_for_val[st_nearest:en_nearest,k] = \
+                np.interp(np.linspace(0.0,1.0,en_nearest-st_nearest),
+                          np.linspace(0.0,1.0,uen_nearest-ust_nearest),
+                          for_val[ust_nearest:uen_nearest,k])
+        new_for_time[st_nearest:en_nearest] = new_for_time[cur_new-1] + 80 +\
+            np.arange(en_nearest-st_nearest)*80
+        cur_new += en_nearest-st_nearest
+        i += 1
+        if i >= units.shape[0]:
+            break
+    new_for_val = new_for_val[:cur_new,:]
+    new_for_time = new_for_time[:cur_new]
+    return new_for_time, new_for_val
 def _select_gci_range(gcis, st, en):
     first_gci = 1000000
     

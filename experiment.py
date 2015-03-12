@@ -36,6 +36,7 @@ if __name__ == "__main__":
     #times, labs = read_lab(lab_name)
     ##tmp_units=extract_info(lab_name, wav_name, 0,0)
     times, pits, vox_times, vox_vals = read_hts_pit(pit_file)
+    frm_time, frm_val = read_hts_for(for_file)
     gcis=pit2gci(times, pits, vox_times, vox_vals)
     tmp_units, times=read_input_lab(dur_file, pit_file)
     #tmp_units = tmp_units[128:140]##
@@ -66,8 +67,8 @@ if __name__ == "__main__":
     #wavs=concatenate_units_overlap(best_units, fnames)
     #gcis = gcis[(gcis>times[128]) * (gcis<times[140])]
     #gcis -= times[128]
+    frm_time, frm_val = units2for(best_units, fnames, times, frm_time, frm_val)
     gcis=units2gci(best_units, fnames)##$
-
     gcis = np.array(gcis)
     ##$gcis *= 16000
     gcis = gcis.astype(np.uint32)
