@@ -82,9 +82,10 @@ if __name__ == "__main__":
     #aa=times[0]##
     #for i in range(len(times)):##
         #times[i] -= aa##
-    
-    wavs=concatenate_units_psola_overlap(best_units, fnames, times, gcis, overlap=0.2)
+    #frm_time *= 16000
+    wavs=concatenate_units_psola_har_overlap(best_units, fnames, times, gcis, frm_time, frm_val, overlap=0.2)
     #wavs=concatenate_units_nooverlap(best_units, fnames)
+    ftime, fval = get_formant(wavs, 16000)
     from scipy.io.wavfile import write as wwrite
     wwrite('out.wav', 16000, wavs)
     print 'successfully saved out.wav'

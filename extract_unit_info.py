@@ -276,6 +276,16 @@ def read_input_lab(lab_path, pit_path):
 
 
 
+def get_formant(wav, fs):
+    SPTK_PATH = '/usr/local/SPTK/bin'
+    from scipy.io.wavfile import write as wwrite
+    wwrite('tmp.raw', fs, wav)
+    command = 'tclsh8.5 getformant.tcl -l -formant -F 4 -L 12 -p 80 -r 16000 tmp.raw | \
+        '+SPTK_PATH+'/x2x +af > tmp.for;'
+    import os
+    os.system(command)
+    return read_hts_for('tmp.for')
+    
 if __name__ == "__main__":
     fnames = get_filenames('lab')
     units = np.zeros(100000, 'object')

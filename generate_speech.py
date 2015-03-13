@@ -19,6 +19,71 @@ from utils import *
 from extract_unit_info import *
 import copy
 
+def hanning2(t0l, t0r):
+    w = np.ones(t0l+t0r, dtype=np.float64)
+    w[:t0l] = 0.5 - 0.5 * np.cos(np.pi * np.arange(t0l) / (t0l - 1)) if t0l > 1 else 0.5
+    w[t0l:] = 0.5 + 0.5 * np.cos(np.pi * np.arange(t0r) / (t0r - 1)) if t0r > 1 else 0.5
+    return w
+def hanning_mod2(t0l, t0r, alpha):
+    w = np.ones(t0l+t0r, dtype=np.float64)
+    n = int(np.round(t0l * alpha * 2))
+    w[:n] = 0.5 - 0.5 * np.cos(np.pi * np.arange(n) / (n - 1))
+    n = int(np.round(t0r * alpha * 2))
+    w[-n:] = 0.5 + 0.5 * np.cos(np.pi * np.arange(n) / (n - 1))
+    return w
+def encode_har(s, F0, t0l, t0r, Fs):
+    def toeplitz(c):
+        c = np.asarray(c).ravel()
+        r = c.conjugate()
+        vals = np.concatenate((r[-1:0:-1], c))
+        a, b = np.ogrid[:len(c), len(r)-1:-1:-1]
+        return vals[a + b]
+    TwoPiJ = 2j * np.pi
+    numH = Fs // (2 * F0) # sinusoids UP to this Fs (but not necessarily the actual Fs as below)
+    DC = 1 # after Xiaochuan Niu
+    if DC:
+        l = np.arange(numH + 1)
+    else:
+        l = np.arange(numH) + 1
+    n = np.arange(t0l + t0r) - t0l
+    B = np.exp((TwoPiJ * F0 / Fs) * np.dot(n[:,np.newaxis], l[:,np.newaxis].T))
+    w = hanning2(t0l, t0r)
+    R = np.dot(np.diag(w), B)
+    t = np.dot(np.conj(R.T), R[:,0])
+    b = np.dot(np.conj(R.T), w * s)
+    H = np.conj(np.linalg.solve(0.5 * toeplitz(t), b).T)
+    if 0:
+        shat = np.dot(B, np.conj(H.T)).real
+        print(np.mean((s-shat)**2)**0.5) # RMS
+        from matplotlib import pyplot as pp
+        pp.plot(s)
+        pp.plot(shat)
+        pp.show()
+    if DC:
+        return H[1:] # don't return the DC component, just use it during fitting
+    else:
+        return H
+
+    
+def decode_har(H, F0, t0l, t0r, Fs):
+    TwoPiJ = 2j * np.pi
+
+    l = np.arange(len(H)) + 1 # no DC
+    n = np.arange(t0l + t0r) - t0l
+    B = np.exp((TwoPiJ * F0 / Fs) * np.dot(n[:,np.newaxis], l[:,np.newaxis].T))
+    #s=real(exp((j*2*pi*F0/Fs).*((-t0l:t0r-1)'*(1:length(H))))*H');
+    #s=real(exp((j*2*pi*F0/Fs).*((-t0l:t0r-1)'*(linspace(1,round(22050/2/F0),length(H)))))*H');
+    return np.dot(B, np.conj(H.T)).real
+def warp_har(H, inp_frm, out_frm, F0, t0l, t0r, Fs):
+    M = np.abs(H)
+    P = np.angle(H)
+    P = np.unwrap(P)
+    w1 = np.arange(1, len(H) + 1) * F0
+    w2 = np.interp(w1, out_frm , inp_frm )
+    M[:] = np.interp(w2, w1, M)
+    P[:] = np.interp(w2, w1, P) # linear interpolation of unwrapped phase
+    Hnew = M * np.exp(P * 1j)
+    return Hnew
 def concatenate_units_nooverlap(units, fnames):
     wavs = np.zeros((16000*30),dtype=np.int16)
     cur = 0
@@ -316,6 +381,193 @@ def _psola(output_gcis, input_gcis, input_wav):
         pp.plot(input_gcis-input_gcis[0], np.ones(input_gcis.shape[0])*2000, '*')
         pp.show()
     return out_wav
+def _psola_har(output_gcis, input_gcis, input_wav):
+    output_gcis = (output_gcis).astype(np.int32)
+    input_gcis = (input_gcis).astype(np.int32)
+    num_input_frames = input_gcis.shape[0]-2
+    num_output_frames = output_gcis.shape[0]-2
+    out_wav = np.zeros((output_gcis[-1]-output_gcis[0]))
+    out_wav_debug = np.zeros((output_gcis[-1]-output_gcis[0], 1000))
+    
+
+    for i in range(1, output_gcis.shape[0]-1):
+        sample_out = (output_gcis[i]-output_gcis[0])/float(output_gcis[-1]-output_gcis[0])
+        #sample_inp = input_gcis[i]/float(input_gcis[-1]-input_gcis[0])
+        #sample_out = 1+int(sample_out*num_output_frames)
+        sample_inp = 1+int(sample_out*num_input_frames)
+        left_input_size = input_gcis[sample_inp]-input_gcis[sample_inp-1]
+        left_output_size = output_gcis[i]-output_gcis[i-1]
+        left_inp = input_wav[input_gcis[sample_inp-1]:input_gcis[sample_inp]]
+        left_out = np.zeros(left_output_size)
+        left_out[-1*min(left_input_size, left_output_size):] = \
+            copy.deepcopy(left_inp[-1*min(left_input_size, left_output_size):])
+        ##left_out *= np.linspace(0.0, 1.0, left_out.shape[0])
+        # linear
+        #left_out[-1*min(left_input_size, left_output_size):] *= \
+            #np.linspace(0.0, 1.0, min(left_input_size, left_output_size))
+        # hanning
+        left_out[-1*min(left_input_size, left_output_size):] *= \
+            np.hanning(min(left_input_size, left_output_size)*2)[:min(left_input_size, left_output_size)]
+        #left_out *= \
+            #np.hanning(left_out.shape[0]*2)[:left_out.shape[0]]
+            #np.linspace(0.0, 1.0, min(left_input_size, left_output_size))
+        right_input_size = input_gcis[sample_inp+1]-input_gcis[sample_inp]
+        right_output_size = output_gcis[i+1]-output_gcis[i]
+        right_inp = input_wav[input_gcis[sample_inp]:input_gcis[sample_inp+1]]
+        right_out = np.zeros(right_output_size)
+        right_out[:min(right_output_size,right_input_size)] = \
+            copy.deepcopy(right_inp[:min(right_output_size,right_input_size)])
+        ##right_out *= np.linspace(1.0, 0.0, right_out.shape[0])
+        # linear
+        #right_out[:min(right_output_size,right_input_size)] *= \
+            #np.linspace(1.0, 0.0, min(right_output_size,right_input_size))
+        # hanning
+        right_out[:min(right_output_size,right_input_size)] *= \
+            np.hanning(min(right_output_size,right_input_size)*2)[min(right_output_size,right_input_size):]
+        #right_out *= \
+            #np.hanning(right_out.shape[0]*2)[right_out.shape[0]:]
+       
+            #np.linspace(1.0, 0.0, min(right_output_size,right_input_size))
+            
+        if 1: # true psola
+            t0l = left_out.shape[0]
+            t0r = right_out.shape[0]
+            f0 = 2.0*16000.0/(t0l+t0r)
+            har=encode_har(np.r_[left_out, right_out], f0, t0l, t0r, 16000)
+            ww=decode_har(har, f0, t0l, t0r, 16000)*hanning_mod2(t0l, t0r, 0.25)
+            out_wav[output_gcis[i-1]-output_gcis[0]:output_gcis[i+1]-output_gcis[0]] += ww
+            out_wav_debug[output_gcis[i-1]-output_gcis[0]:output_gcis[i+1]-output_gcis[0], i-1] = ww
+        else: # only right
+            out_wav[output_gcis[i]-output_gcis[0]:output_gcis[i+1]-output_gcis[0]] = right_out
+            out_wav_debug[output_gcis[i]-output_gcis[0]:output_gcis[i+1]-output_gcis[0], i-1] = right_out
+        
+            
+    if 0: ## vis
+        ax=pp.subplot(311)
+        pp.plot(out_wav)
+        pp.plot(output_gcis-output_gcis[0], np.ones(output_gcis.shape[0])*2000, '*')
+
+        pp.subplot(312,sharex=ax)
+        for j in range(output_gcis.shape[0]-2):
+            pp.plot(out_wav_debug[:,j])
+        pp.plot(output_gcis-output_gcis[0], np.ones(output_gcis.shape[0])*2000, '*')
+        pp.subplot(313,sharex=ax)
+        pp.plot(input_wav[input_gcis[0]:input_gcis[-1]])
+        pp.plot(input_gcis-input_gcis[0], np.ones(input_gcis.shape[0])*2000, '*')
+        pp.show()
+    return out_wav
+
+def _psola_har_warp(output_gcis, input_gcis, input_wav, src_frm, trg_frm):
+    output_gcis = (output_gcis).astype(np.int32)
+    input_gcis = (input_gcis).astype(np.int32)
+    num_input_frames = input_gcis.shape[0]-2
+    num_output_frames = output_gcis.shape[0]-2
+    out_wav = np.zeros((output_gcis[-1]-output_gcis[0]))
+    out_wav_debug = np.zeros((output_gcis[-1]-output_gcis[0], 1000))
+    
+
+    for i in range(1, output_gcis.shape[0]-1):
+        sample_out = (output_gcis[i]-output_gcis[0])/float(output_gcis[-1]-output_gcis[0])
+        #sample_inp = input_gcis[i]/float(input_gcis[-1]-input_gcis[0])
+        #sample_out = 1+int(sample_out*num_output_frames)
+        sample_inp = 1+int(sample_out*num_input_frames)
+        left_input_size = input_gcis[sample_inp]-input_gcis[sample_inp-1]
+        left_output_size = output_gcis[i]-output_gcis[i-1]
+        left_inp = input_wav[input_gcis[sample_inp-1]:input_gcis[sample_inp]]
+        left_out = np.zeros(left_output_size)
+        left_out[-1*min(left_input_size, left_output_size):] = \
+            copy.deepcopy(left_inp[-1*min(left_input_size, left_output_size):])
+        ##left_out *= np.linspace(0.0, 1.0, left_out.shape[0])
+        # linear
+        #left_out[-1*min(left_input_size, left_output_size):] *= \
+            #np.linspace(0.0, 1.0, min(left_input_size, left_output_size))
+        # hanning
+        left_out[-1*min(left_input_size, left_output_size):] *= \
+            np.hanning(min(left_input_size, left_output_size)*2)[:min(left_input_size, left_output_size)]
+        #left_out *= \
+            #np.hanning(left_out.shape[0]*2)[:left_out.shape[0]]
+            #np.linspace(0.0, 1.0, min(left_input_size, left_output_size))
+        right_input_size = input_gcis[sample_inp+1]-input_gcis[sample_inp]
+        right_output_size = output_gcis[i+1]-output_gcis[i]
+        right_inp = input_wav[input_gcis[sample_inp]:input_gcis[sample_inp+1]]
+        right_out = np.zeros(right_output_size)
+        right_out[:min(right_output_size,right_input_size)] = \
+            copy.deepcopy(right_inp[:min(right_output_size,right_input_size)])
+        ##right_out *= np.linspace(1.0, 0.0, right_out.shape[0])
+        # linear
+        #right_out[:min(right_output_size,right_input_size)] *= \
+            #np.linspace(1.0, 0.0, min(right_output_size,right_input_size))
+        # hanning
+        right_out[:min(right_output_size,right_input_size)] *= \
+            np.hanning(min(right_output_size,right_input_size)*2)[min(right_output_size,right_input_size):]
+        #right_out *= \
+            #np.hanning(right_out.shape[0]*2)[right_out.shape[0]:]
+       
+            #np.linspace(1.0, 0.0, min(right_output_size,right_input_size))
+            
+        if 1: # true psola
+            t0l = left_out.shape[0]
+            t0r = right_out.shape[0]
+            f0 = 2.0*16000.0/(t0l+t0r)
+            har=encode_har(np.r_[left_out, right_out], f0, t0l, t0r, 16000)
+            if trg_frm.shape[0] != 0:
+                cur_src_frm = np.r_[0.0]
+                for k in range(4):
+                    cur_src_frm=np.r_[cur_src_frm, src_frm[int(src_frm.shape[0]*i/float(output_gcis.shape[0])),k]-\
+                                    src_frm[int(src_frm.shape[0]*i/float(output_gcis.shape[0])),k+4]/2.0 ]
+                    cur_src_frm=np.r_[cur_src_frm, src_frm[int(src_frm.shape[0]*i/float(output_gcis.shape[0])),k]+\
+                                    src_frm[int(src_frm.shape[0]*i/float(output_gcis.shape[0])),k+4]/2.0 ]
+                cur_src_frm=np.r_[cur_src_frm, 8000.0]
+                for k in range(cur_src_frm.shape[0]-1):
+                    if cur_src_frm[k+1] < cur_src_frm[k]:
+                        cur_src_frm[k+1] = cur_src_frm[k]
+                cur_trg_frm = np.r_[0.0]
+                for k in range(4):
+                    cur_trg_frm=np.r_[cur_trg_frm, trg_frm[int(trg_frm.shape[0]*i/float(output_gcis.shape[0])),k]-\
+                                    trg_frm[int(trg_frm.shape[0]*i/float(output_gcis.shape[0])),k+4]/2.0 ]
+                    cur_trg_frm=np.r_[cur_trg_frm, trg_frm[int(trg_frm.shape[0]*i/float(output_gcis.shape[0])),k]+\
+                                    trg_frm[int(trg_frm.shape[0]*i/float(output_gcis.shape[0])),k+4]/2.0 ]
+                cur_trg_frm=np.r_[cur_trg_frm, 8000.0]
+                for k in range(cur_trg_frm.shape[0]-1):
+                    if cur_trg_frm[k+1] < cur_trg_frm[k]:
+                        cur_trg_frm[k+1] = cur_trg_frm[k]
+            else:
+                cur_src_frm = np.r_[0.0]
+                for k in range(4):
+                    cur_src_frm=np.r_[cur_src_frm, src_frm[int(src_frm.shape[0]*i/float(output_gcis.shape[0])),k]-\
+                                    src_frm[int(src_frm.shape[0]*i/float(output_gcis.shape[0])),k+4]/2.0 ]
+                    cur_src_frm=np.r_[cur_src_frm, src_frm[int(src_frm.shape[0]*i/float(output_gcis.shape[0])),k]+\
+                                    src_frm[int(src_frm.shape[0]*i/float(output_gcis.shape[0])),k+4]/2.0 ]
+                cur_src_frm=np.r_[cur_src_frm, 8000.0]
+                for k in range(cur_src_frm.shape[0]-1):
+                    if cur_src_frm[k+1] < cur_src_frm[k]:
+                        cur_src_frm[k+1] = cur_src_frm[k]
+                cur_trg_frm = cur_src_frm.copy()
+                           
+            har2=warp_har(har, cur_src_frm, cur_trg_frm, f0, t0l, t0r, 16000)
+            ww=decode_har(har2, f0, t0l, t0r, 16000)*hanning_mod2(t0l, t0r, 0.25)
+            out_wav[output_gcis[i-1]-output_gcis[0]:output_gcis[i+1]-output_gcis[0]] += ww
+            out_wav_debug[output_gcis[i-1]-output_gcis[0]:output_gcis[i+1]-output_gcis[0], i-1] = ww
+        else: # only right
+            out_wav[output_gcis[i]-output_gcis[0]:output_gcis[i+1]-output_gcis[0]] = right_out
+            out_wav_debug[output_gcis[i]-output_gcis[0]:output_gcis[i+1]-output_gcis[0], i-1] = right_out
+        
+            
+    if 0: ## vis
+        ax=pp.subplot(311)
+        pp.plot(out_wav)
+        pp.plot(output_gcis-output_gcis[0], np.ones(output_gcis.shape[0])*2000, '*')
+
+        pp.subplot(312,sharex=ax)
+        for j in range(output_gcis.shape[0]-2):
+            pp.plot(out_wav_debug[:,j])
+        pp.plot(output_gcis-output_gcis[0], np.ones(output_gcis.shape[0])*2000, '*')
+        pp.subplot(313,sharex=ax)
+        pp.plot(input_wav[input_gcis[0]:input_gcis[-1]])
+        pp.plot(input_gcis-input_gcis[0], np.ones(input_gcis.shape[0])*2000, '*')
+        pp.show()
+    return out_wav
+
 def concatenate_units_psola_nooverlap(units, fnames, times, gcis):
     wavs = np.zeros((16000*30),dtype=np.int16)
     wavs_debug = np.zeros((16000*30,units.shape[0]),dtype=np.int16)
@@ -406,6 +658,83 @@ def concatenate_units_psola_overlap(units, fnames, times, gcis, overlap=0.1):
         cur_first_gci, cur_last_gci = _select_gci_range(cur_gcis, st, en)
         cur_wav=_psola(gcis[first_gci_ov:last_gci_ov+1], cur_gcis[cur_first_gci:cur_last_gci+1], wav)
         
+        wavs[gcis[first_gci_ov]:gcis[last_gci_ov]] += cur_wav.astype(np.int16)
+        wavs_debug[gcis[first_gci]:gcis[last_gci], cnt] +=\
+            cur_wav[gcis[first_gci]-gcis[first_gci_ov]:cur_wav.shape[0]-\
+                    (gcis[last_gci_ov]-gcis[last_gci])].astype(np.int16)
+        wavs_debug[gcis[first_gci_ov]:gcis[first_gci], cnt] +=\
+            cur_wav[:gcis[first_gci]-gcis[first_gci_ov]].astype(np.int16) *\
+            np.linspace(0.0, 1.0, gcis[first_gci]-gcis[first_gci_ov])
+        wavs_debug[gcis[last_gci]:gcis[last_gci_ov], cnt] +=\
+            cur_wav[cur_wav.shape[0]-(gcis[last_gci_ov]-gcis[last_gci]):].astype(np.int16) *\
+            np.linspace(1.0, 0.0, gcis[last_gci_ov]-gcis[last_gci])
+        
+        #assert cur_dur == cur_wav.shape[0]
+        #cur += (en-st)
+        cur += (gcis[last_gci]-gcis[first_gci])        
+        i = j + 1
+        cnt += 1
+        if i >= units.shape[0]:
+            break
+    if 1: ## vis
+        for j in range(cnt):
+            pp.plot(wavs_debug[:cur,j])
+        pp.show()
+    return wavs[:cur]
+    
+def concatenate_units_psola_har_overlap(units, fnames, times, gcis, trg_frm_time, trg_frm_val, overlap=0.1):
+    wavs = np.zeros((16000*30),dtype=np.int16)
+    wavs_debug = np.zeros((16000*30,units.shape[0]),dtype=np.int16)
+    cur = 0
+    i = 0
+    cnt = 0
+    while True:
+        st = units[i].starting_sample-int(overlap*(units[i].starting_sample-units[i].overlap_starting_sample))
+        en = 0
+        j = i
+        cur_dur = 0
+        for j in range(i, units.shape[0]-1): # find consecutive
+            if units[j].unit_id != units[j+1].unit_id-1:
+                break
+            cur_dur += (times[j+1]-times[j])
+
+        cur_dur += (times[j+1]-times[j])
+        #if j//2-1>=0:
+        #    cur_dur += (times[1+j//2]-times[j//2])//2
+        st_ov = int(overlap*(units[i].starting_sample-units[i].overlap_starting_sample))
+        en_ov = int(overlap*(units[i].overlap_ending_sample-units[i].ending_sample))
+
+        cur_ov = cur-st_ov
+        if cur_ov < 0:
+            cur_ov = 0
+            st_ov = 0
+        cur_dur_ov = cur_dur + en_ov
+
+        first_gci, last_gci = _select_gci_range(gcis, cur, cur+cur_dur)
+        first_gci_ov, last_gci_ov = _select_gci_range(gcis, cur_ov, cur+cur_dur_ov)
+
+        en= units[j].ending_sample+en_ov
+        wav_name=corpus_path+'/wav/'+fnames[units[i].filename]+'.wav'
+        fs, wav = read_wav(wav_name)
+       
+        pm_name=corpus_path+'/pm/'+fnames[units[i].filename]+'.pm'
+        cur_gcis = read_pm(pm_name)
+        cur_gcis = np.array(cur_gcis)
+        cur_gcis *= 16000.0
+        #cur_wav = copy.deepcopy(wav[st:en])
+        cur_first_gci, cur_last_gci = _select_gci_range(cur_gcis, st, en)
+        ftime, fval = get_formant(wav, 16000)
+        ftime *= 16000
+        inp_frm_st = np.abs(cur_gcis[cur_first_gci]-ftime).argmin()
+        inp_frm_en = np.abs(cur_gcis[cur_last_gci]-ftime).argmin()
+        out_frm_st = np.abs(gcis[first_gci_ov]-trg_frm_time).argmin()
+        out_frm_en = np.abs(gcis[last_gci_ov]-trg_frm_time).argmin()
+        cur_wav=_psola_har(gcis[first_gci_ov:last_gci_ov+1], cur_gcis[cur_first_gci:cur_last_gci+1], wav)
+        #cur_wav = _psola_har_warp(gcis[first_gci_ov:last_gci_ov+1],
+                                  #cur_gcis[cur_first_gci:cur_last_gci+1],
+                                  #wav,
+                                  #fval[inp_frm_st:inp_frm_en,:],
+                                  #trg_frm_val[out_frm_st:out_frm_en,:])
         wavs[gcis[first_gci_ov]:gcis[last_gci_ov]] += cur_wav.astype(np.int16)
         wavs_debug[gcis[first_gci]:gcis[last_gci], cnt] +=\
             cur_wav[gcis[first_gci]-gcis[first_gci_ov]:cur_wav.shape[0]-\
