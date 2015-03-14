@@ -513,20 +513,24 @@ def _psola_har_warp(output_gcis, input_gcis, input_wav, src_frm, trg_frm):
             if trg_frm.shape[0] != 0:
                 cur_src_frm = np.r_[0.0]
                 for k in range(4):
-                    cur_src_frm=np.r_[cur_src_frm, src_frm[int(src_frm.shape[0]*i/float(output_gcis.shape[0])),k]-\
-                                    src_frm[int(src_frm.shape[0]*i/float(output_gcis.shape[0])),k+4]/2.0 ]
-                    cur_src_frm=np.r_[cur_src_frm, src_frm[int(src_frm.shape[0]*i/float(output_gcis.shape[0])),k]+\
-                                    src_frm[int(src_frm.shape[0]*i/float(output_gcis.shape[0])),k+4]/2.0 ]
+                    #cur_src_frm=np.r_[cur_src_frm, src_frm[int(src_frm.shape[0]*i/float(output_gcis.shape[0])),k]-\
+                                    #src_frm[int(src_frm.shape[0]*i/float(output_gcis.shape[0])),k+4]/2.0 ]
+                    #cur_src_frm=np.r_[cur_src_frm, src_frm[int(src_frm.shape[0]*i/float(output_gcis.shape[0])),k]+\
+                                    #src_frm[int(src_frm.shape[0]*i/float(output_gcis.shape[0])),k+4]/2.0 ]
+                    cur_src_frm=np.r_[cur_src_frm, src_frm[int(src_frm.shape[0]*i/float(output_gcis.shape[0])),k]]
+                    
                 cur_src_frm=np.r_[cur_src_frm, 8000.0]
                 for k in range(cur_src_frm.shape[0]-1):
                     if cur_src_frm[k+1] < cur_src_frm[k]:
                         cur_src_frm[k+1] = cur_src_frm[k]
                 cur_trg_frm = np.r_[0.0]
                 for k in range(4):
-                    cur_trg_frm=np.r_[cur_trg_frm, trg_frm[int(trg_frm.shape[0]*i/float(output_gcis.shape[0])),k]-\
-                                    trg_frm[int(trg_frm.shape[0]*i/float(output_gcis.shape[0])),k+4]/2.0 ]
-                    cur_trg_frm=np.r_[cur_trg_frm, trg_frm[int(trg_frm.shape[0]*i/float(output_gcis.shape[0])),k]+\
-                                    trg_frm[int(trg_frm.shape[0]*i/float(output_gcis.shape[0])),k+4]/2.0 ]
+                    #cur_trg_frm=np.r_[cur_trg_frm, trg_frm[int(trg_frm.shape[0]*i/float(output_gcis.shape[0])),k]-\
+                                    #trg_frm[int(trg_frm.shape[0]*i/float(output_gcis.shape[0])),k+4]/2.0 ]
+                    #cur_trg_frm=np.r_[cur_trg_frm, trg_frm[int(trg_frm.shape[0]*i/float(output_gcis.shape[0])),k]+\
+                                    #trg_frm[int(trg_frm.shape[0]*i/float(output_gcis.shape[0])),k+4]/2.0 ]
+                    cur_trg_frm=np.r_[cur_trg_frm, trg_frm[int(trg_frm.shape[0]*i/float(output_gcis.shape[0])),k]]
+                    
                 cur_trg_frm=np.r_[cur_trg_frm, 8000.0]
                 for k in range(cur_trg_frm.shape[0]-1):
                     if cur_trg_frm[k+1] < cur_trg_frm[k]:
@@ -546,6 +550,11 @@ def _psola_har_warp(output_gcis, input_gcis, input_wav, src_frm, trg_frm):
                            
             har2=warp_har(har, cur_src_frm, cur_trg_frm, f0, t0l, t0r, 16000)
             ww=decode_har(har2, f0, t0l, t0r, 16000)*hanning_mod2(t0l, t0r, 0.25)
+            #sm=np.sum(ww**2)
+            #ww/=np.abs(ww).max()##$
+            #ww*=10000.0
+            if np.abs(ww).max() > 20000:
+                ww/= 2
             out_wav[output_gcis[i-1]-output_gcis[0]:output_gcis[i+1]-output_gcis[0]] += ww
             out_wav_debug[output_gcis[i-1]-output_gcis[0]:output_gcis[i+1]-output_gcis[0], i-1] = ww
         else: # only right
@@ -682,12 +691,15 @@ def concatenate_units_psola_overlap(units, fnames, times, gcis, overlap=0.1):
         pp.show()
     return wavs[:cur]
     
-def concatenate_units_psola_har_overlap(units, fnames, times, gcis, trg_frm_time, trg_frm_val, overlap=0.1):
+def concatenate_units_psola_har_overlap(units, fnames, old_times, times, gcis, trg_frm_time, trg_frm_val, overlap=0.5):
     wavs = np.zeros((16000*30),dtype=np.int16)
     wavs_debug = np.zeros((16000*30,units.shape[0]),dtype=np.int16)
     cur = 0
     i = 0
     cnt = 0
+    frm1 =np.zeros((100000,4))
+    frm2 =np.zeros((100000,4))
+    frm_cnt = 0
     while True:
         st = units[i].starting_sample-int(overlap*(units[i].starting_sample-units[i].overlap_starting_sample))
         en = 0
@@ -729,12 +741,42 @@ def concatenate_units_psola_har_overlap(units, fnames, times, gcis, trg_frm_time
         inp_frm_en = np.abs(cur_gcis[cur_last_gci]-ftime).argmin()
         out_frm_st = np.abs(gcis[first_gci_ov]-trg_frm_time).argmin()
         out_frm_en = np.abs(gcis[last_gci_ov]-trg_frm_time).argmin()
-        cur_wav=_psola_har(gcis[first_gci_ov:last_gci_ov+1], cur_gcis[cur_first_gci:cur_last_gci+1], wav)
-        #cur_wav = _psola_har_warp(gcis[first_gci_ov:last_gci_ov+1],
-                                  #cur_gcis[cur_first_gci:cur_last_gci+1],
-                                  #wav,
-                                  #fval[inp_frm_st:inp_frm_en,:],
-                                  #trg_frm_val[out_frm_st:out_frm_en,:])
+        #cur_wav=_psola_har(gcis[first_gci_ov:last_gci_ov+1], cur_gcis[cur_first_gci:cur_last_gci+1], wav)
+        #pp.plot(fval[inp_frm_st:inp_frm_en,:4],'b')
+        #pp.plot(trg_frm_val[out_frm_st:out_frm_en,:4],'g')
+        #pp.show()
+        LEN = (out_frm_en-out_frm_st)
+        if inp_frm_st+LEN > fval.shape[0]:
+            LEN = fval.shape[0] - inp_frm_st
+        if 1: # align for
+            ust = old_times[i]
+            uen = old_times[j+1]
+            ust_nearest = np.abs(ust-trg_frm_time).argmin()
+            uen_nearest = np.abs(uen-trg_frm_time).argmin()
+            st_nearest = frm_cnt
+            en_nearest = st_nearest + (en-st)/80#framesize
+            new_for_val = np.zeros((LEN, 8))
+            for k in range(trg_frm_val.shape[1]):
+                new_for_val[:, k] = \
+                    np.interp(np.linspace(0.0,1.0,LEN),
+                              np.linspace(0.0,1.0,uen_nearest-ust_nearest),
+                              trg_frm_val[ust_nearest:uen_nearest,k])
+        
+
+        #LEN = (inp_frm_en-inp_frm_st)
+        #if LEN > (out_frm_en-out_frm_st):
+            #LEN = (out_frm_en-out_frm_st)
+
+        frm1[frm_cnt:frm_cnt+LEN,:] = fval[inp_frm_st:inp_frm_st+LEN,:4]
+        #frm1[frm_cnt:frm_cnt+LEN,:] = (new_for_val[:, :4]-new_for_val[:, :4].mean(0))+fval[inp_frm_st:inp_frm_st+LEN,:4].mean(0)
+        #frm2[frm_cnt:frm_cnt+LEN,:] = new_for_val[:, :4]
+        frm2[frm_cnt:frm_cnt+LEN,:] = fval[inp_frm_st:inp_frm_st+LEN,:4]#(fval[inp_frm_st:inp_frm_st+LEN,:4]-fval[inp_frm_st:inp_frm_st+LEN,:4].mean(0))+new_for_val[:, :4].mean(0)
+        frm2[frm_cnt:frm_cnt+LEN,:][frm2[frm_cnt:frm_cnt+LEN,:]<0]=0.0
+        cur_wav = _psola_har_warp(gcis[first_gci_ov:last_gci_ov+1],
+                                  cur_gcis[cur_first_gci:cur_last_gci+1],
+                                  wav,
+                                  frm1[frm_cnt:frm_cnt+LEN,:],
+                                  frm2[frm_cnt:frm_cnt+LEN,:])
         wavs[gcis[first_gci_ov]:gcis[last_gci_ov]] += cur_wav.astype(np.int16)
         wavs_debug[gcis[first_gci]:gcis[last_gci], cnt] +=\
             cur_wav[gcis[first_gci]-gcis[first_gci_ov]:cur_wav.shape[0]-\
@@ -748,12 +790,21 @@ def concatenate_units_psola_har_overlap(units, fnames, times, gcis, trg_frm_time
         
         #assert cur_dur == cur_wav.shape[0]
         #cur += (en-st)
+        frm_cnt += LEN
+
         cur += (gcis[last_gci]-gcis[first_gci])        
         i = j + 1
         cnt += 1
+        print i, units.shape[0]
         if i >= units.shape[0]:
             break
     if 1: ## vis
+        frm1 = frm1[:frm_cnt,:]
+        frm2 = frm2[:frm_cnt,:]
+        pp.plot(frm1,'b')
+        pp.plot(frm2,'g')
+        pp.show()
+
         for j in range(cnt):
             pp.plot(wavs_debug[:cur,j])
         pp.show()
